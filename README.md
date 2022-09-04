@@ -1,4 +1,5 @@
 # gz-cpp-util
+cpp-20 utility library for my projects
 
 ## Features
 - Extensive logger using variadic templates to log almost anything
@@ -23,7 +24,7 @@
 - Include the wanted header: `#include <gz-util/*dir*/*header.hpp*>`
 ### Documentation
 The documentation for this library can be generated using **doxygen**. 
-Install doxygen and run `make docs`.
+Install doxygen and run `make docs`, then open `docs/html/index.html`.
 
 
 ## Changelog

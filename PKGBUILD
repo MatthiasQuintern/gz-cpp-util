@@ -1,7 +1,7 @@
 # Maintainer: Matthias Quintern <matthiasqui@protonmail.com>
 pkgname=gz-cpp-util
 pkgver=1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Utility library for c++"
 arch=('any')
 url="https://github.com/MatthiasQuintern/gz-cpp-util"
