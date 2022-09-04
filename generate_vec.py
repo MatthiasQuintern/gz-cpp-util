@@ -1,7 +1,9 @@
 """
 A python script to generate a c++ vector library for math
 Should work with vectors with 2-9 components
-2022 Matthias Quintern
+Copyright  ©  2022  Matthias  Quintern.
+This software comes with no warranty.
+This software is licensed under the GPL3
 """
 
 from os import path
