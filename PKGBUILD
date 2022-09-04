@@ -13,7 +13,7 @@ md5sums=('SKIP')
 build() {
 	mkdir -p pkg
 	cd "${pkgname}/src"
-	make release
+	make
 	make DESTDIR="${srcdir}/pkg_tmp" install
 }
 
