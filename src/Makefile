@@ -44,6 +44,7 @@ $(OBJECT_DIRS):
 # INSTALLATION
 #
 install: $(LIB) $(HEADER_INST)
+	install -D -m 755 $< $(DESTDIR)/usr/lib/$(subst ../,,$<)
 
 $(OBJECT_DIR)/%.stamp: %.hpp $(OBJECT_DIR)
 	install -D -m 644 $< $(DESTDIR)/usr/include/gz-util/$<
