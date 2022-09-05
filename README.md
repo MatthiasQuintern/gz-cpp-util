@@ -20,8 +20,14 @@ cpp-20 utility library for my projects
 
 
 ## Usage
+### Library
 - Add `-lgzutil` to your linker flags
 - Include the wanted header: `#include <gz-util/*dir*/*header.hpp*>`
+
+### Enumeration-to-string script
+- The gen_enum_str.py script will be installed to `/usr/bin/gz-enum-str`.
+- Run `gz-enum-str -h` to list available options.
+
 ### Documentation
 The documentation for this library can be generated using **doxygen**. 
 Install doxygen and run `make docs`, then open `docs/html/index.html`.
