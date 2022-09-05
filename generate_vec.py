@@ -1,3 +1,4 @@
+#!/bin/python3
 """
 A python script to generate a c++ vector library for math
 Should work with vectors with 2-9 components
