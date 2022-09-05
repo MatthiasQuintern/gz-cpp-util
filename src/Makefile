@@ -45,6 +45,7 @@ $(OBJECT_DIRS):
 #
 install: $(LIB) $(HEADER_INST)
 	install -D -m 755 $< $(DESTDIR)/usr/lib/$(subst ../,,$<)
+	install -D -m 755 ../gen_enum_str.py $(DESTDIR)/usr/bin/gz-gen-enum
 
 $(OBJECT_DIR)/%.stamp: %.hpp $(OBJECT_DIR)
 	install -D -m 644 $< $(DESTDIR)/usr/include/gz-util/$<
