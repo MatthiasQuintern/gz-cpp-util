@@ -16,8 +16,8 @@ struct Iterator {
             ptr = other.ptr;
             return *this;
         };
-        Iterator& operator++() { ptr += sizeof(T); return *this; };
-        Iterator operator++(int) { auto copy = *this; ptr += sizeof(T); return copy; };
+        Iterator& operator++() { ptr++; return *this; };
+        Iterator operator++(int) { auto copy = *this; ptr++; return copy; };
         friend int operator-(Iterator lhs, Iterator rhs) {
             return lhs.ptr - rhs.ptr;
         };
