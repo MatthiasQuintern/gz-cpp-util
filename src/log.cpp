@@ -33,7 +33,7 @@ namespace gz {
     std::mutex Log::mtx;
 #endif
     Log::Log(std::string logfile, bool showLog, bool storeLog, std::string&& prefix_, Color prefixColor, bool clearLogfileOnRestart, unsigned int writeAfterLines)
-        : showLog(showLog), storeLog(storeLog), prefixColor(prefixColor), prefix(prefix_ + ": "), prefixLength(prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1), writeToFileAfterLines(writeAfterLines) {
+        : iter(0), writeToFileAfterLines(writeAfterLines), showLog(showLog), storeLog(storeLog), prefixColor(prefixColor), prefix(prefix_ + ": "), prefixLength(prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1) {
         // get absolute path to the logfile
         fs::path logpath(logfile);
         if (!logpath.is_absolute()) {
@@ -43,7 +43,7 @@ namespace gz {
         if (!fs::is_directory(logpath.parent_path())) {
             fs::create_directory(logpath.parent_path());
         }
-        logFile = std::move(logpath.string());
+        logFile = logpath.string();
 
         // if clearLogfileOnRestart, open the file to clear it
         if (clearLogfileOnRestart and fs::is_regular_file(logfile)) {
@@ -52,7 +52,7 @@ namespace gz {
         }
 
         if (writeToFileAfterLines == 0) { writeToFileAfterLines = 1; }
-        logLines.resize(writeAfterLines);
+        logLines.resize(writeToFileAfterLines);
         // reserve memory for strings
         if (LOG_RESERVE_STRING_SIZE > 0) {
             for (size_t i = 0; i < logLines.size(); i++) {
@@ -74,7 +74,6 @@ namespace gz {
         std::time_t t = std::time(0);
         struct std::tm *tmp;
         tmp = std::localtime(&t);
-        
         // stores the date and time in time: yyyy-mm-dd hh:mm:ss:
         std::strftime(time, sizeof(time), "%F %T: ", tmp);
     }

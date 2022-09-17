@@ -29,10 +29,11 @@ namespace gz {
     //
     // CONCEPTS
     //
-    /// is appendable to std::string
+    /// is (similar or convertible to) std::string
     template<typename T> 
-    /* concept Stringy = std::same_as<T, std::string> || std::convertible_to<T, std::string_view>; */
-    concept Stringy = requires(T t, std::string s) { s += t; };
+    concept Stringy = std::same_as<T, std::string> || std::convertible_to<T, std::string_view>;
+    /// is appendable to std::string
+    /* concept Stringy = requires(T t, std::string s) { s += t; }; */
 
     /// has .to_string() member
     template<typename T>
@@ -57,7 +58,11 @@ namespace gz {
     /// Type having printable .x and .y members
     template<typename T>
     concept Vector2Printable = !Printable<T> && 
-        requires(T t) { { t.x } -> Printable; { t.y } -> Printable; };
+        requires(T t) { 
+            { t.x } -> Printable; 
+            { t.y } -> Printable; 
+            requires sizeof(t.x) * 2 == sizeof(T);
+        };
 
     /// Pair having printable elements
     template<typename T>
@@ -111,8 +116,7 @@ namespace gz {
      *  1-7 include for example:
      *  - int, float, bool...
      *  - std::vector<std::string>, std::list<unsigned int>
-     *  - std::map<A, vec2<float>> if A.to_string() returns a string
-     *  - ...
+     *  - std::map<A, vec2<float>> if A.to_string() returns a string - ...
      */
     template<typename T>
     concept Logable = LogableNotPointer<T> || LogableSmartPointer<T>;
@@ -179,7 +183,8 @@ class Log {
 #ifdef LOG_MULTITHREAD 
             mtx.lock();
 #endif
-            logLines[iter] = getTime();
+            getTime();
+            logLines[iter] = time;
             logLines[iter] += prefix;
             vlog(" ", std::forward<Args>(args)...);
             logLines[iter] += "\n";
@@ -244,7 +249,7 @@ class Log {
             mtx.lock();
 #endif
             getTime();
-            logLines[iter] = time;
+            logLines[iter] = std::string(time);
             logLines[iter] += prefix + ": " + type + ": ";
             vlog(" ", std::forward<Args>(args)...);
             logLines[iter] += "\n";
@@ -336,6 +341,7 @@ class Log {
             for (auto it = t.begin(); it != t.end(); it++) {
                 vlog(", ", *it); 
             }
+            logLines[iter].erase(logLines[iter].size() - 2);
             logLines[iter] += "]";
             logLines[iter] += appendChars;
             vlog(" ", std::forward< Args>(args)...);
@@ -367,7 +373,7 @@ class Log {
         /// Where the lines are stored
         std::vector<std::string> logLines;
         /// The current position in logLines
-        size_t iter;
+        size_t iter = 0;
         /// When iter reaches writeToFileAfterLines, write log to file
         unsigned int writeToFileAfterLines;
         /// Absolute path to the logfile
