@@ -3,7 +3,6 @@ cpp-20 utility library for my projects
 
 ## Features
 - Extensive logger using variadic templates to log almost anything
-- vecX and matMxN vector and matrix classes
 - Some containers like a thread safe queue and a ringbuffer
 - Regex that works with std::string_view
 - Type conversion utility (from string to int/float/uint/bool)
@@ -34,6 +33,8 @@ Install doxygen and run `make docs`, then open `docs/html/index.html`.
 
 
 ## Changelog
+### 2022-09-17
+- Moved math part to its own repository/library [here](https://github.com/MatthiasQuintern/gzm)
 ### 2022-09-10
 - Added matrices to math lib
 - Improved logger

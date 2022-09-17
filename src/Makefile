@@ -25,7 +25,7 @@ default: $(LIB)
 	echo $(OBJECTS)
 
 # with debug flags
-debug: CXXFLAGS += -g +Wextra # -DDEBUG 
+debug: CXXFLAGS += -g # -DDEBUG 
 debug: default
 
 $(LIB): $(OBJECT_DIRS) $(OBJECTS)
@@ -51,7 +51,7 @@ uninstall:
 	-rm $(DESTDIR)/usr/lib/$(subst ../,,$(LIB))
 	-rm $(DESTDIR)/usr/bin/gz-enum-str
 	-rm -r $(DESTDIR)/usr/include/gz-util/
-	-rm $(OBJECT_DIR)/*.stamp
+	-rm -f $(OBJECT_DIR)/*.stamp
 
 
 $(OBJECT_DIR)/%.stamp: %.hpp $(OBJECT_DIR)
@@ -63,7 +63,7 @@ $(OBJECT_DIR)/%.stamp: %.hpp $(OBJECT_DIR)
 #
 # remove all object and dependecy files
 clean:
-	-rm -r $(OBJECT_DIR)
+	-rm -rf $(OBJECT_DIR)
 	-rm $(LIB)
 
 docs:

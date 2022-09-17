@@ -1,6 +1,6 @@
 # Maintainer: Matthias Quintern <matthiasqui@protonmail.com>
 pkgname=gz-cpp-util
-pkgver=1.1
+pkgver=1.2
 pkgrel=0
 pkgdesc="Utility library for c++"
 arch=('any')
