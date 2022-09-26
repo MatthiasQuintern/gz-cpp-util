@@ -1,7 +1,10 @@
 # gz-util - About
 This c++20 library contains multiple useful functions, most of them are focused on working with strings.
+Documentation is [available here](https://docs.quintern.xyz/gz-cpp-util/index.hmtml).
 
 Please report bugs on the [github page](https://github.com/MatthiasQuintern/gz-cpp-util)!
+
+
 
 ## Features
 - Extensive logger using variadic templates to log almost anything
@@ -26,7 +29,7 @@ I do not delevop on windows, but you'll figure it out.
 The library does not contain platform specific code and should compile with mvsc.
 
 ### Documentation
-The documentation for this library can be generated using **doxygen**. 
+The documentation is for this library is [available here](https://docs.quintern.xyz/), but it can also be generated using **doxygen**. 
    cd gz-cpp-util/src
    make docs
    firefox ../docs/html/index.html
