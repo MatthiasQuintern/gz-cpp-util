@@ -1,4 +1,4 @@
-#include "gz_regex.hpp"
+#include "regex.hpp"
 
 namespace gz::re {
     const std::regex types::intT(R"([+\-]?(0x|0X)?\d+)");
