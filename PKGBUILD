@@ -1,6 +1,6 @@
 # Maintainer: Matthias Quintern <matthiasqui@protonmail.com>
 pkgname=gz-cpp-util
-pkgver=1.2
+pkgver=1.3
 pkgrel=0
 pkgdesc="Utility library for c++"
 arch=('any')
@@ -14,7 +14,7 @@ build() {
 	mkdir -p pkg
 	cd "${pkgname}/src"
 	make
-	make DESTDIR="${srcdir}/pkg_tmp" install
+	make DESTDIR="${srcdir}/pkg_tmp/usr" install
 }
 
 

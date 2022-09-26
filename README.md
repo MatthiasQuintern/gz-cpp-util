@@ -1,11 +1,15 @@
-# gz-cpp-util
-cpp-20 utility library for my projects
+# gz-util - About
+This c++20 library contains multiple useful functions, most of them are focused on working with strings.
+
+Please report bugs on the [github page](https://github.com/MatthiasQuintern/gz-cpp-util)!
 
 ## Features
 - Extensive logger using variadic templates to log almost anything
 - Some containers like a thread safe queue and a ringbuffer
 - Regex that works with std::string_view
 - Type conversion utility (from string to int/float/uint/bool)
+- Settings manager which can store settings of different types and load/save them from/to a file
+- Python script that generates an array of strings for your enumerations, so that you can get the name of an enum value
 
 
 ## Installation
@@ -15,24 +19,41 @@ cpp-20 utility library for my projects
 
 ### Linux
 - Make a clone of this repo: `git clone https://github.com/MatthiasQuintern/gz-cpp-util`
-- Build and install: `cd src && make && make install`
+- Build and install: `cd src && make && make DESTDIR=/usr/local install`
+
+### Windows
+I do not delevop on windows, but you'll figure it out. 
+The library does not contain platform specific code and should compile with mvsc.
+
+### Documentation
+The documentation for this library can be generated using **doxygen**. 
+   cd gz-cpp-util/src
+   make docs
+   firefox ../docs/html/index.html
+Replace `firefox` with your web browser
 
 
 ## Usage
 ### Library
 - Add `-lgzutil` to your linker flags
 - Include the wanted header: `#include <gz-util/*dir*/*header.hpp*>`
+- The name of the library is `gz-util` and not `gz-cpp-util` like the git repo!
 
 ### Enumeration-to-string script
-- The gen_enum_str.py script will be installed to `/usr/bin/gz-enum-str`.
+- The gen_enum_str.py script will be installed to `/usr/(local)/bin/gz-enum-str`.
 - Run `gz-enum-str -h` to list available options.
-
-### Documentation
-The documentation for this library can be generated using **doxygen**. 
-Install doxygen and run `make docs`, then open `docs/html/index.html`.
 
 
 ## Changelog
+### 2022-09-26
+- Added SettingsManager
+- Renamed getXXX to getXXXOr
+- Added more type conversion utility
+    - from_string<T>()
+    - to_string()
+- Logger now uses to_string
+- Restructured files
+- Added more documentation
 ### 2022-09-17
 - Moved math part to its own repository/library [here](https://github.com/MatthiasQuintern/gzm)
 ### 2022-09-10

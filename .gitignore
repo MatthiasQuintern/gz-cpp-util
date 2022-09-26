@@ -1,5 +1,5 @@
 build
-docs
+docs/html
 libgzutil.a
 .clangd
 .vimspector.json
