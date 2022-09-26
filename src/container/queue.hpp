@@ -1,4 +1,4 @@
-/* #include "util.hpp" */
+#include "../util/util.hpp"
 
 #include <iostream>
 #include <vector>
@@ -7,7 +7,7 @@
 #include <concepts>
 #include <thread>
 
-namespace gz::util {
+namespace gz {
 
     // from util.hpp
     template<std::unsigned_integral I, std::unsigned_integral S>
@@ -210,4 +210,4 @@ namespace gz::util {
         readIndex = 0;
         mtx.unlock();
     }
-}
+} // namespace gz
