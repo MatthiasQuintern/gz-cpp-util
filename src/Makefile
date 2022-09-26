@@ -38,25 +38,29 @@ $(OBJECT_DIR)/%.o: %.cpp
 	$(CXX) -c $< -o $@ $(CXXFLAGS) $(LDFLAGS) $(LDLIBS)
 
 $(OBJECT_DIRS):
-	mkdir -p $@
+	@mkdir -p $@
 
 #
 # INSTALLATION
 #
 install: $(LIB) $(HEADER_INST)
-	install -D -m 755 $< $(DESTDIR)/usr/lib/$(subst ../,,$<)
-	install -D -m 755 ../gen_enum_str.py $(DESTDIR)/usr/bin/gz-enum-str
+	@{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
+	install -D -m 755 $< $(DESTDIR)/lib/$(subst ../,,$<)
+	install -D -m 755 ../gen_enum_str.py $(DESTDIR)/bin/gz-enum-str
 
 uninstall:
-	-rm $(DESTDIR)/usr/lib/$(subst ../,,$(LIB))
-	-rm $(DESTDIR)/usr/bin/gz-enum-str
-	-rm -r $(DESTDIR)/usr/include/gz-util/
+	{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
+	-rm $(DESTDIR)/lib/$(subst ../,,$(LIB))
+	-rm $(DESTDIR)/bin/gz-enum-str
+	-rm -r $(DESTDIR)/include/gz-util/
 	-rm -f $(OBJECT_DIR)/*.stamp
 
 
 $(OBJECT_DIR)/%.stamp: %.hpp $(OBJECT_DIR)
-	install -D -m 644 $< $(DESTDIR)/usr/include/gz-util/$<
-	touch $@
+	@{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
+	install -D -m 644 $< $(DESTDIR)/include/gz-util/$<
+	@touch $@
+	@chmod 777 $@
 
 #
 # EXTRAS
