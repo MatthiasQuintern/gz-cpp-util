@@ -1,6 +1,6 @@
 # gz-util - About
 This c++20 library contains multiple useful functions, most of them are focused on working with strings.
-Documentation is [available here](https://docs.quintern.xyz/gz-cpp-util/index.hmtml).
+Documentation is [available here](https://docs.quintern.xyz/gz-cpp-util/index.html).
 
 Please report bugs on the [github page](https://github.com/MatthiasQuintern/gz-cpp-util)!
 
