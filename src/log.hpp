@@ -1,13 +1,12 @@
 #pragma once
 
+#include <vector>
 #define LOG_MULTITHREAD
+
+#include "util/string_conversion.hpp"
 
 #include <iostream>
 #include <string>
-#include <concepts>
-#include <ranges>
-#include <unordered_map>
-#include <vector>
 
 #ifdef LOG_MULTITHREAD 
 #include <mutex>
@@ -20,70 +19,6 @@ namespace gz {
 
     constexpr unsigned int LOG_TIMESTAMP_CHAR_COUNT = 22;
     constexpr unsigned int LOG_POSTPREFIX_CHAR_COUNT = 2;
-
-
-    inline const char* boolToString(bool b) {
-        return b ? "true" : "false";
-    }
-
-    //
-    // CONCEPTS
-    //
-    /// is (similar or convertible to) std::string
-    template<typename T> 
-    concept Stringy = std::same_as<T, std::string> || std::convertible_to<T, std::string_view>;
-    /// is appendable to std::string
-    /* concept Stringy = requires(T t, std::string s) { s += t; }; */
-
-    /// has .to_string() member
-    template<typename T>
-    concept HasToString = !Stringy<T> && requires(T t) { { t.to_string() }-> Stringy; };
-    
-    /// an overload of Stringy to_string(const T&) exists in global or gz namespace
-    template<typename T>
-    concept ExistsToString = !Stringy<T> && !HasToString<T> && requires(const T& t) { { to_string(t) } -> Stringy; };
-
-    /// works with std::to_string(), except bool
-    template<typename T>
-    concept WorksWithStdToString = !std::same_as<T, bool> && !Stringy<T> && !HasToString<T> && !ExistsToString<T> && requires(T t) { { std::to_string(t) } -> Stringy; };
-
-    /// string-like, has .to_string() member, to_string(const T&) exits, works with std::to_string() or bool
-    template<typename T>
-    concept PrintableNoPtr = Stringy<T> || HasToString<T> || ExistsToString<T> || WorksWithStdToString<T> || std::same_as<T, bool>;
-
-    /// Everything from PrintableNoPtr but "behind" a pointer
-    template<typename T>
-    concept Printable = PrintableNoPtr<T> || requires(T t) { { *(t.get()) } ->  PrintableNoPtr; };
-
-    /// Type having printable .x and .y members
-    template<typename T>
-    concept Vector2Printable = !Printable<T> && 
-        requires(T t) { 
-            { t.x } -> Printable; 
-            { t.y } -> Printable; 
-            requires sizeof(t.x) * 2 == sizeof(T);
-        };
-
-    /// Pair having printable elements
-    template<typename T>
-    concept PairPrintable = !Vector2Printable<T> && !Printable<T> && 
-        requires(T p) { { p.first } -> Printable; } &&  (requires(T p){ { p.second } -> Printable; } ||  requires(T p){ { p.second } -> Vector2Printable; }); 
-
-    /// Container having printable elements
-    template<typename T>
-    concept ContainerPrintable = !Printable<T> && !Vector2Printable<T> &&  !PairPrintable<T> &&
-        std::ranges::forward_range<T> && (Printable<std::ranges::range_reference_t<T>> || Vector2Printable<std::ranges::range_reference_t<T>>); 
-
-    /// Container having printable pairs
-    template<typename T>
-    concept MapPrintable = !Printable<T> && !Vector2Printable<T> && !ContainerPrintable<T> &&
-        std::ranges::forward_range<T> && PairPrintable<std::ranges::range_reference_t<T>>;
-
-    template<typename T>
-    concept LogableNotPointer = Printable<T> || Vector2Printable<T> || PairPrintable<T> || ContainerPrintable<T> || MapPrintable<T>;
-
-    template<typename T> 
-    concept LogableSmartPointer = requires(T t) { { *(t.get()) } ->  LogableNotPointer; };
 
 
     //
@@ -103,23 +38,26 @@ namespace gz {
      * @brief Define types that can be logged with Log
      * @details
      *  As of now you can log type T with instance t:
-     *  -# Any @ref Stringy "string-like type": eg. std::string, std::string_view 
-     *  -# Any @ref WorksWithStdToString "type that works with std::to_string()"
-     *  -# Any @ref ExistsToString "type for which an overload of" <code>Stringy to_string(const T&)</code> exists in global or gz namespace
-     *  -# Any @ref HasToString "type that has a to_string() const member that returns a string"
-     *  -# Any @ref Vector2Printable "type with t.x and t.y", provided t.x and t.y satisfy one of 1-3
-     *  -# Any @ref PairPrintable "type with t.first, t.second" provided t.first satisfies one of 1-3 and t.second satisfies 1-4
-     *  -# Any @ref ContainerPrintable "type that has a forward_iterator" which references any one of 1-5
+     *  -# Any @ref util::Stringy "string-like type": eg. std::string, std::string_view 
+     *  -# Any @ref util::WorksWithStdToString "type that works with std::to_string()"
+     *  -# Any @ref util::HasToStringMember "type that has a to_string() const member that returns a string"
+     *  -# Any @ref util::ContainerConvertibleToString "type that has a forward_iterator" which references any one of 1-3
+     *  -# Any @ref util::PairConvertibleToString "type with t.first, t.second" provided t.first satisfies one of 1-4 and t.second satisfies 1-4
+     *  -# Any @ref util::MapConvertibleToString "type that has a forward_iterator" which references 5
+     *  -# Any @ref util::Vector2ConvertibleToString "type with t.x and t.y", provided t.x and t.y satisfy one of 1-6
+     *  -# Any @ref util::Vector3ConvertibleToString "type with t.x, t.y, t.z", provided t.x, t.y, t.z satisfy one of 1-6
+     *  -# Any @ref util::Vector4ConvertibleToString "type with t.x, t.y, t.z and t.w", provided t.x, t.y, t.z, t.w satisfy one of 1-6
+     *  -# Any @ref ConvertibleToString "type for which an overload of" <code>util::Stringy to_string(const T&)</code> exists in global or gz namespace
      *
      *  The higher number takes precedence in overload resolution for the log function.
      *
-     *  1-7 include for example:
+     *  1-6 include for example:
      *  - int, float, bool...
      *  - std::vector<std::string>, std::list<unsigned int>
-     *  - std::map<A, vec2<float>> if A.to_string() returns a string - ...
+     *  - std::map<std::string, std::vector<A>> if A.to_string() returns a string - ...
      */
     template<typename T>
-    concept Logable = LogableNotPointer<T> || LogableSmartPointer<T>;
+    concept Logable = ConvertibleToString<T>;
 
 /**
  * @brief Manages printing messages to stdout and to logfiles.
@@ -270,104 +208,22 @@ class Log {
     private:
         // vlog for variadic log
         /// Log anything that can be appendend to std::string
-        template<Stringy T, Logable... Args>
+        template<util::Stringy T, Logable... Args>
         void vlog(const char* appendChars, T&& t,  Args&&... args) {
             logLines[iter] += t;
             logLines[iter] += appendChars;
             vlog(" ", std::forward< Args>(args)...);
         }
-
-        /// Log anything that has a to_string() member
-        template<HasToString T, Logable... Args>
-        void vlog(const char* appendChars, T&& t,  Args&&... args) {
-            logLines[iter] += t.to_string();
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
-
-        /// Log anything where to_string(const T&) -> Stringy
-        template<ExistsToString T, Logable... Args>
-        void vlog(const char* appendChars, T&& t,  Args&&... args) {
+        /// Log anything where to_string exists
+        template<ConvertibleToString T, Logable... Args>
+        void vlog(const char* appendChars, T&& t,  Args&&... args) requires (!util::Stringy<T>) {
             logLines[iter] += to_string(t);
             logLines[iter] += appendChars;
             vlog(" ", std::forward< Args>(args)...);
         }
 
-        /// Log anything that works with std::to_string()
-        template<WorksWithStdToString T, Logable... Args>
-        void vlog(const char* appendChars, T&& t,  Args&&... args) {
-            logLines[iter] += std::to_string(t);
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
-
-        /// Log bool
-        template<typename T, Logable... Args> 
-            requires(std::same_as<T, bool>)
-        void vlog(const char* appendChars, T&& b,  Args&&... args) {
-            logLines[iter] += boolToString(b);
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
-
-        /// Log vec2
-        template<Vector2Printable V,  Logable... Args>
-        void vlog(const char* appendChars, V&& v,  Args&&... args) {
-            logLines[iter] += "(";
-            vlog("", v.x);
-            logLines[iter] += ", ";
-            vlog("", v.y);
-            logLines[iter] += ")";
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
-
-        /// Log a pair
-        template<PairPrintable P,  Logable... Args>
-        void vlog(const char* appendChars, P&& p,  Args&&... args) {
-            logLines[iter] += "(";
-            vlog("", p.first);
-            logLines[iter] += ", ";
-            vlog("" ,p.second);
-            logLines[iter] += ")";
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
-
-        /// Log a container using iterators
-        template<ContainerPrintable T, Logable... Args>
-        void vlog(const char* appendChars, T&& t,  Args&&... args) {;
-            logLines[iter] += "[";
-            for (auto it = t.begin(); it != t.end(); it++) {
-                vlog(", ", *it); 
-            }
-            logLines[iter].erase(logLines[iter].size() - 2);
-            logLines[iter] += "]";
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
-
-        /// Log a container containing a pair
-        template<MapPrintable T, Logable... Args>
-        void vlog(const char* appendChars, T&& t, Args&&... args) {
-            logLines[iter] += "{";
-            for (const auto& [k, v] : t) {
-                vlog(": ", k);
-                vlog(", ", v);
-            }
-            logLines[iter] += "}";
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward<Args>(args)...);
-        }
-
-        /// Log any logable element that is stored in a pointer
-        template<LogableSmartPointer T, Logable... Args>
-        void vlog(const char* appendChars, T&& t, Args&&... args) {
-            vlog("", *t);
-            vlog(" ", std::forward<Args>(args)...);
-        }
-
         void vlog(const char* appendChars) {};
+
 
     private:
         /// Where the lines are stored
