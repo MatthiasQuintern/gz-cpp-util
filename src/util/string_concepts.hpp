@@ -10,13 +10,19 @@ namespace gz::util {
 // CONVERT TO STRING CONCEPTS
 //
     // ELEMENTARY TYPES
-    /// is (similar or convertible to) std::string
+    /// same as std::string
     template<typename T> 
     concept Stringy = std::same_as<T, std::string> || std::convertible_to<T, std::string_view>;
 
+    /// can construct std::string from T
+    template<typename T> 
+    concept CanConstructString = !Stringy<T> && requires(const T& t) {
+        { std::string(t) } -> std::same_as<std::string>;
+    };
+
     /// has .to_string() const member
     template<typename T>
-    concept HasToStringMember = !Stringy<T> && requires(const T& t) { { t.to_string() }-> Stringy; };
+    concept HasToStringMember = !Stringy<T> && requires(const T& t) { { t.toString() }-> Stringy; };
 
     /// works with std::to_string(), except bool
     template<typename T>
@@ -84,11 +90,56 @@ namespace gz::util {
     // POINTER
     /// Everything from string-convertibleNoPtr but "behind" a pointer
     template<typename T>
-    concept PointerConvertibleToString = requires(const T t) { { *t } -> _ElementaryTypeOrContainerConvertibleToString; };
+    concept PointerConvertibleToString = !_ElementaryTypeOrContainerConvertibleToString<T> and 
+        requires(const T t) { { *t } -> _ElementaryTypeOrContainerConvertibleToString; };
 
 } // namespace gz::util
 
-namespace gz {
+
+//
+// CONVERT TO STRING
+//
+template<typename T>
+concept False = false;
+/**
+ * @brief Declaration of fromString in global namespace, so that concepts can use it
+ * @details
+ *  This declaration only exists so that ::fromString can be used in concepts.
+ */
+template<False T>
+T fromString(const std::string& s);
+/**
+ * @brief Declaration of toString in global namespace, so that concepts can use it
+ *  This declaration only exists so that ::toString can be used in concepts.
+ */
+template<False T>
+std::string toString(const T& s);
+
+namespace gz::util {
+    template<typename T>
+    concept ConstructibleFromStringGlobal = requires(const std::string& s) {
+        { ::fromString<T>(s) } -> std::same_as<T>;
+    };
+    template<typename T>
+    concept ConvertibleToStringGlobal = requires(const T& t) { 
+        { ::toString(t) } -> Stringy; 
+    };
+
+    /**
+     * @brief toString is implemented for these types
+     */
+    template<typename T>
+    concept GetTypeFromStringImplemented = 
+        std::same_as<T, int> or
+        std::same_as<T, long> or
+        std::same_as<T, long long> or
+        std::same_as<T, unsigned int> or
+        std::same_as<T, unsigned long> or
+        std::same_as<T, unsigned long long> or
+        std::same_as<T, float> or
+        std::same_as<T, double> or
+        std::same_as<T, long double> or
+        std::same_as<T, bool>;
 }
 
 /**

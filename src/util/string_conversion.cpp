@@ -105,14 +105,14 @@ std::string getStringOr(const std::string& s, const std::string& fallback) noexc
 // CONVERT FROM STRING
 //
 template<>
-bool from_string<bool>(const std::string& s) { 
+bool fromString<bool>(const std::string& s) { 
     if (s == "true" or s == "True" or s == "1") {
         return true;
     }
     else if (s == "false" or s == "False" or s == "0") {
         return false;
     }
-    throw InvalidArgument("s is not a bool: '" + s + "'", "from_string<bool>");
+    throw InvalidArgument("s is not a bool: '" + s + "'", "fromString<bool>");
 }
 
 

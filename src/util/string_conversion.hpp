@@ -78,20 +78,28 @@ namespace gz {
  * @{
  */
     /**
-     * @brief Construct a string from a string like-type
+     * @brief Return the string
      */
     template<util::Stringy T>
-    inline std::string to_string(const T& t) {
-        return t;
+    inline std::string toString(const T& t) {
+        return static_cast<std::string>(t);
+    }
+
+    /**
+     * @brief Construct a string from a string like-type
+     */
+    template<util::CanConstructString T>
+    inline std::string toString(const T& t) {
+        return std::string(t);
     }
 
     /**
      * @overload
-     * @brief Construct a string from a type having a to_string() const member function
+     * @brief Construct a string from a type having a toString() const member function
      */
     template<util::HasToStringMember T>
-    inline std::string to_string(const T& t) {
-        return t.to_string();
+    inline std::string toString(const T& t) {
+        return t.toString();
     }
 
     /**
@@ -100,7 +108,7 @@ namespace gz {
      * @returns std::to_string(t)
      */
     template<util::WorksWithStdToString T>
-    inline std::string to_string(const T& t) {
+    inline std::string toString(const T& t) {
         return std::to_string(t);
     }
 
@@ -110,7 +118,7 @@ namespace gz {
      *  Unlike std::to_string(bool), which returns 0 or 1, this function returns "true" or "false"
      * @returns "true" or "false"
      */
-    inline std::string to_string(const bool& b) {
+    inline std::string toString(const bool& b) {
         return b ? "true" : "false";
     }
 
@@ -119,10 +127,10 @@ namespace gz {
      * @brief Construct a string from a forward range
      */
     template<util::ContainerConvertibleToString T>
-    std::string to_string(const T& t) {
+    std::string toString(const T& t) {
         std::string s = "[ ";
         for (auto it = t.begin(); it != t.end(); it++) {
-            s += to_string(*it) + ", ";
+            s += toString(*it) + ", ";
         }
         if (s.size() > 2) {
             s.erase(s.size() - 2);
@@ -136,8 +144,8 @@ namespace gz {
      * @brief Construct a string from a pair
      */
     template<util::PairConvertibleToString T>
-    inline std::string to_string(const T& t) {
-        return "{ " + to_string(t.first) + ", " + to_string(t.second) + " }";
+    inline std::string toString(const T& t) {
+        return "{ " + toString(t.first) + ", " + toString(t.second) + " }";
     }
 
     /**
@@ -145,11 +153,11 @@ namespace gz {
      * @brief Construct a string from a forward range holding a pair, eg a map
      */
     template<util::MapConvertibleToString T>
-    std::string to_string(const T& t) {
+    std::string toString(const T& t) {
         std::string s = "{ ";
         for (const auto& [k, v] : t) {
-            s += to_string(k) + ": ";
-            s += to_string(v) + ", ";
+            s += toString(k) + ": ";
+            s += toString(v) + ", ";
         }
         if (s.size() > 2) {
             s.erase(s.size() - 2);
@@ -163,8 +171,8 @@ namespace gz {
      * @brief Construct a string from the element the pointer points at
      */
     template<util::PointerConvertibleToString T>
-    inline std::string to_string(const T& t) {
-        return to_string(*t);        
+    inline std::string toString(const T& t) {
+        return toString(*t);        
     }
 
     /**
@@ -172,10 +180,10 @@ namespace gz {
      * @brief Construct a string from a vector with x, y members
      */
     template<util::Vector2ConvertibleToString T>
-    inline std::string to_string(const T& t) {
+    inline std::string toString(const T& t) {
         std::string s = "( ";
-        s += to_string(t.x) + ", ";
-        s += to_string(t.z) + " )";
+        s += toString(t.x) + ", ";
+        s += toString(t.z) + " )";
         return s;
     }
 
@@ -184,11 +192,11 @@ namespace gz {
      * @brief Construct a string from a vector with x, y members
      */
     template<util::Vector3ConvertibleToString T>
-    inline std::string to_string(const T& t) {
+    inline std::string toString(const T& t) {
         std::string s = "( ";
-        s += to_string(t.x) + ", ";
-        s += to_string(t.y) + ", ";
-        s += to_string(t.z) + " )";
+        s += toString(t.x) + ", ";
+        s += toString(t.y) + ", ";
+        s += toString(t.z) + " )";
         return s;
     }
 
@@ -197,13 +205,22 @@ namespace gz {
      * @brief Construct a string from a vector with x, y, z, w members
      */
     template<util::Vector4ConvertibleToString T>
-    inline std::string to_string(const T& t) {
+    inline std::string toString(const T& t) {
         std::string s = "( ";
-        s += to_string(t.x) + ", ";
-        s += to_string(t.y) + ", ";
-        s += to_string(t.z) + ", ";
-        s += to_string(t.w) + " )";
+        s += toString(t.x) + ", ";
+        s += toString(t.y) + ", ";
+        s += toString(t.z) + ", ";
+        s += toString(t.w) + " )";
         return s;
+    }
+
+    /**
+     * @overload
+     * @brief Construct a string from a type that has toString declared in global namespace
+     */
+    template<util::ConvertibleToStringGlobal T>
+    inline std::string toString(const T& t) {
+        return ::toString(t);
     }
 /**
 * @}
@@ -215,59 +232,50 @@ namespace gz {
 /**
  * @name Construct a type from a string
  * @note 
- *  The from_string()functions (except for the bool one) simply return std::stoXX. These can throw std::invalid_argument and std::out_of_range.
+ *  The fromString()functions (except for the bool one) simply return std::stoXX. These can throw std::invalid_argument and std::out_of_range.
  *  See https://en.cppreference.com/w/cpp/string/basic_string/stol
  */
-    template<typename T>
-    concept GetTypeFromStringImplemented = 
-        std::same_as<T, int> or
-        std::same_as<T, long> or
-        std::same_as<T, long long> or
-        std::same_as<T, unsigned int> or
-        std::same_as<T, unsigned long> or
-        std::same_as<T, unsigned long long> or
-        std::same_as<T, float> or
-        std::same_as<T, double> or
-        std::same_as<T, long double> or
-        std::same_as<T, bool>;
 
-    template<GetTypeFromStringImplemented T>
-    T from_string(const std::string& s);
+    /**
+     * @brief Declaration of fromString, but only for the types for which it is implemented
+     */
+    template<util::GetTypeFromStringImplemented T>
+    T fromString(const std::string& s);
 
     /// @returns std::stoi(s)
-    template<> inline int from_string<int>(const std::string& s) {
+    template<> inline int fromString<int>(const std::string& s) {
         return std::stoi(s);
     }
     /// @returns std::stol(s)
-    template<> inline long from_string<long>(const std::string& s) {
+    template<> inline long fromString<long>(const std::string& s) {
         return std::stol(s);
     }
     /// @returns std::stoll(s)
-    template<> inline long long from_string<long long>(const std::string& s) {
+    template<> inline long long fromString<long long>(const std::string& s) {
         return std::stoll(s);
     }
     /// @returns std::stoul(s)
-    template<> inline unsigned int from_string<unsigned int>(const std::string& s) {
+    template<> inline unsigned int fromString<unsigned int>(const std::string& s) {
         return std::stoul(s);
     }
     /// @returns std::stoul(s)
-    template<> inline unsigned long from_string<unsigned long>(const std::string& s) {
+    template<> inline unsigned long fromString<unsigned long>(const std::string& s) {
         return std::stoul(s);
     }
     /// @returns std::stoull(s)
-    template<> inline unsigned long long from_string<unsigned long long>(const std::string& s) {
+    template<> inline unsigned long long fromString<unsigned long long>(const std::string& s) {
         return std::stoull(s);
     }
     /// @returns std::stof(s)
-    template<> inline float from_string<float>(const std::string& s) {
+    template<> inline float fromString<float>(const std::string& s) {
         return std::stof(s);
     }
     /// @returns std::stod(s)
-    template<> inline double from_string<double>(const std::string& s) {
+    template<> inline double fromString<double>(const std::string& s) {
         return std::stod(s);
     }
     /// @returns std::stold(s)
-    template<> inline long double from_string<long double>(const std::string& s) {
+    template<> inline long double fromString<long double>(const std::string& s) {
         return std::stold(s);
     }
     /**
@@ -277,34 +285,44 @@ namespace gz {
      *  - returns false if s = "false" or "False" or "0"
      *  - throws InvalidArgument otherwise
      */
-    template<> bool from_string<bool>(const std::string& s);
+    template<> bool fromString<bool>(const std::string& s);
+
+    /**
+     * @overload
+     * @brief Construct T from a string using a fromString that is declared in global namespace
+     */
+    template<util::ConstructibleFromStringGlobal T>
+    inline T fromString(const std::string& s) {
+        return ::fromString<T>(s);
+    }
 /**
 * @}
 */
-
 
 //
 // CONCEPTS
 //
     /**
-     * @brief Any type where to_string(t) const exists returns a string-like type
+     * @brief Any type where toString(t) const exists returns a string-like type
      * @note The function only has to exist, it does not have to be noexcept!
      */  
     template<typename T>
-    concept ConvertibleToString = requires(const T& t) { { to_string(t) } -> util::Stringy; };
-    /* concept CovertibleToString = requires(const T& t) { { to_string(t) }; }; */
+    concept ConvertibleToString = requires(const T& t) { 
+        { toString(t) } -> util::Stringy; 
+    };
+    /* concept CovertibleToString = requires(const T& t) { { toString(t) }; }; */
 
     /**
-     * @brief Any type where from_string(string) exists and returns T
+     * @brief Any type where fromString(string) exists and returns T
      * @note The function only has to exist, it does not have to be noexcept!
      */  
     template<typename T>
     concept ConstructibleFromString = requires(const std::string& s) {
-        { from_string<T>(s) } -> std::same_as<T>;
+        { fromString<T>(s) } -> std::same_as<T>;
     };
 
     /**
-     * @brief Any type where to_string(t) and from_string(string) exist
+     * @brief Any type where toString(t) and fromString(string) exist
      */  
     template<typename T>
     concept StringConvertible = ConvertibleToString<T> and ConstructibleFromString<T>;
@@ -328,29 +346,29 @@ namespace gz {
  *  If you want to use your own data type with one of these, 
  *  you can easily @ref sc_overloads "write your own string conversion" function for your custom datatype.
  *  
- * @section sc_to_string Convert to string
- *  You can use the to_string() function to turn certain types into strings.
+ * @section sc_toString Convert to string
+ *  You can use the toString() function to turn certain types into strings.
  *  Concepts are used to determine the correct overload of the function.
  *
  *  The concept ConvertibleToString is satisfied for types that can be converted to string 
- *  using to_string().
+ *  using toString().
  *  
- * @section sc_from_string Construct from string
- *  You can use the from_string() function to create certain types from a string.
+ * @section sc_fromString Construct from string
+ *  You can use the fromString() function to create certain types from a string.
  *
- *  The concept ConstructibleFromString is satisfied for types that can be constructed from a string with from_string().
+ *  The concept ConstructibleFromString is satisfied for types that can be constructed from a string with fromString().
  *
  *  When constructing something from a string, there is of course the problem that errors occur at runtime when
- *  the string is unsuitable for construction. In this case, the from_string functions from this library throw a InvalidArgument exception.
+ *  the string is unsuitable for construction. In this case, the fromString functions from this library throw a InvalidArgument exception.
  *
  * @section sc_overloads Overloading the string conversion functions
- *  @subsection sc_to_string_ov Overload for to_string
+ *  @subsection sc_toString_ov Overload for toString
  *   If you want your custom type to be convertible to string, you have different options.
- *   You can either add an <code>to_string() const</code> member to your class or overload 
- *   <code>std::string to_string(const T&)</code>.
+ *   You can either add an <code>toString() const</code> member to your class or overload 
+ *   <code>std::string toString(const T&)</code>.
  *   Example for a class called <code>Custom</code>
  *   @code
- *    std::string to_string(const Custom& c) {
+ *    std::string toString(const Custom& c) {
  *        std::string s;
  *        ...
  *        return s;
@@ -360,20 +378,20 @@ namespace gz {
  *   so you have to at least declare it in a header file.
  *    
 
- *  @subsection sc_from_string_ov Overload for from_string
- *   Writing an overload for from_string needs a little bit more boiler plate.
- *   Since from_string is a templated function, you need to declare it as such.
+ *  @subsection sc_fromString_ov Overload for fromString
+ *   Writing an overload for fromString needs a little bit more boiler plate.
+ *   Since fromString is a templated function, you need to declare it as such.
  *   The function declaration in this library uses a concept so that it is only
  *   declared for the types that are actully implemented.
  *   Example for a class called <code>Custom</code>
  *   @code
  *    // declare as template, but only for Custom
  *    template<std::same_as<Custom> T>
- *    Custom from_string(const std::string& s);
+ *    Custom fromString(const std::string& s);
  *
  *    // instantiation/definition, but only for Custom
  *    template<>
- *    Custom from_string<Custom>(const std::string& s) {
+ *    Custom fromString<Custom>(const std::string& s) {
  *        ... 
  *        return Custom(...);
  *     };
@@ -384,15 +402,15 @@ namespace gz {
  *   In other words:
  *   @code
  *    Custom c1;
- *    Custom c2 = from_string(to_string(c1));
+ *    Custom c2 = fromString(toString(c1));
  *    assert(c1 == c2);
  *   @endcode
  *
- *   SettingsManager expects the strings from to_string() to be a single line.
+ *   SettingsManager expects the strings from toString() to be a single line.
  *   If it has multiple lines, it will not load it correctly when loading from a file.
  *
- *  @todo Implement from_string for vectors that hold ConstructibleFromString types
- *  @todo Make from_string throw InvalidArgument, write docs
- *  @todo Make macro for all types/concepts where someone would want to implement from_string and to_string explicitly, eg vectors
+ *  @todo Implement fromString for vectors that hold ConstructibleFromString types
+ *  @todo Make fromString throw InvalidArgument, write docs
+ *  @todo Make macro for all types/concepts where someone would want to implement fromString and toString explicitly, eg vectors
  */
 } // namespace gz
