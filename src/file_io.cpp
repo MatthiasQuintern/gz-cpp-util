@@ -38,7 +38,7 @@ namespace gz {
                 getline(file, line);
 
                 // ignore commented lines
-                if (line.find("#") != std::string::npos) { continue; }
+                if (line.starts_with('#')) { continue; }
 
                 // if "=" in line: split into key - value pair and store in map
                 if (line.find("=") != std::string::npos) {
