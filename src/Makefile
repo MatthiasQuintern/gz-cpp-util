@@ -46,7 +46,7 @@ $(OBJECT_DIRS):
 install: $(LIB) $(HEADER_INST)
 	@{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
 	install -D -m 755 $< $(DESTDIR)/lib/$(subst ../,,$<)
-	install -D -m 755 ../gen_enum_str.py $(DESTDIR)/bin/gz-enum-str
+	install -D -m 755 ../gen_enum_str.py $(DESTDIR)/bin/gen-enum-str
 
 uninstall:
 	{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
