@@ -26,11 +26,18 @@ namespace gz {
      * @details
      *  If type is
      *  - SM_RANGE -> allowedValues must be an integer [ low, high, step ], the allowed value can then be in [ low, high ) but must be low + n*step
-     *  - SM_LIST -> allowedValues is a list strings, which are the allowed values
+     *  - SM_LIST -> allowedValues must contain strings, which are the allowed values
      */
     struct SettingsManagerAllowedValues {
         SettingsManagerAllowedValueTypes type;
-        std::vector<std::variant<std::string, int>> allowedValues;
+        std::variant<std::vector<int>, std::vector<std::string>> allowedValues;
+        /**
+         * @brief Check if struct is valid.
+         * @details
+         *  If type is SM_RANGE and allowedValues only has 2 values (lowest and highest value), the third (step) value=1 is appended
+         * @throws InvalidArgument if it is not valid
+         */
+        void hasCorrectFormat();
     };
 
     /**
@@ -102,7 +109,7 @@ namespace gz {
      *   Additionaly, the converted type is cached so that the conversion can be skipped if it is requested again.
      *   The user must instantiate the SettingsManager with all the cache-types beforehand, only those can be retrieved using get.
      *
-     *   The strings are converted using from_string(T), which is either user defined for custom types or @ref from_string "this library".
+     *   The strings are converted using fromString(T), which is either user defined for custom types or @ref fromString "this library".
      *   There is of course no guarantee that the conversion works, the @ref sm_getters "getters" will throw an exception if it doesnt.
      *
      *  @section sm_callback Callback functions
@@ -242,8 +249,8 @@ namespace gz {
         /**
          * @}
          */
-            std::string to_string() const {
-                return to_string(settings);
+            std::string toString() const {
+                return gz::toString(settings);
             };
 
         /**
@@ -273,6 +280,10 @@ namespace gz {
         /**
          * @}
          */
+            /**
+             * @brief Get a const reference to the underlying map
+             */
+            const util::unordered_string_map<std::string>& getSettingsMap() const { return settings; };
 
         private:
         /**
@@ -313,13 +324,6 @@ namespace gz {
              * @throws InvalidArgument if any of the initial allowedValues structs is invalid
              */
             void initAllowedValues();
-            /**
-             * @brief Check if allowed values struct is valid.
-             * @details
-             *  If type is SM_RANGE and allowedValues only has 2 values (lowest and highest value), the third (step) value=1 is appended
-             * @throws InvalidArgument if it is not valid
-             */
-            void isAllowedValueStructValid(SettingsManagerAllowedValues& av) const;
             util::unordered_string_map<SettingsManagerAllowedValues> allowedValues;
             bool throwExceptionWhenNewValueNotAllowed;
         /**
@@ -336,7 +340,6 @@ namespace gz {
             bool insertFallbacks;
             bool writeFileOnExit;
             std::string filepath;
-
     };
 }
 
@@ -379,7 +382,6 @@ namespace gz {
     void SettingsManager<CacheTypes...>::initCache() {
         cacheTypes.insert(typeid(CacheType1).name());
         initCache<void, CacheTypesOther...>();
-        std::cout << "initCache: type " << typeid(CacheType1).name() << "\n";
     }
 
     template<StringConvertible... CacheTypes>
@@ -412,7 +414,7 @@ namespace gz {
         // if not cached -> cache
         if (!settingsCache[typeid(T).name()].contains(key)) {
             try {
-                settingsCache[typeid(T).name()][key] = from_string<T>(settings[key]);
+                settingsCache[typeid(T).name()][key] = fromString<T>(settings[key]);
             }
             catch (...) {
                 throw InvalidType("Could not convert value '" + settings[key] + "' to type '" + typeid(T).name() + "'. Key: '" + key + "'", "SettingsManager::get");
@@ -448,7 +450,7 @@ namespace gz {
         else {
             if (insertFallbacks) {
                 try {
-                    settings[key] = to_string(fallback);
+                    settings[key] = gz::toString(fallback);
                 }
                 catch (...) {
                     throw InvalidType("Can not convert fallback value to string. Key: '" + key + "'", "SettingsManager::getOr");
@@ -524,7 +526,7 @@ namespace gz {
         // convert to string
         std::string s;
         try {
-            s = to_string(value);
+            s = gz::toString(value);
         }
         catch (std::exception& e) {
             throw InvalidArgument("Could not convert value to string, an exception occured: '" + std::string(e.what()) + "'. Key: '" + key + "'", "SettingsManager::set<" + std::string(typeid(T).name()) + ">");
@@ -573,14 +575,16 @@ namespace gz {
             return true;
         }
         switch (allowedValues.at(key).type) {
-            case SM_LIST:
-                for (auto it = allowedValues.at(key).allowedValues.begin(); it != allowedValues.at(key).allowedValues.end(); it++) {
-                    if (std::get<std::string>(*it) == value) {
+            case SM_LIST: {
+                const std::vector<std::string>& av = std::get<std::vector<std::string>>(allowedValues.at(key).allowedValues);
+                for (auto it = av.begin(); it != av.end(); it++) {
+                    if (*it == value) {
                         return true;
                     }
                 }
-                break;
-            case SM_RANGE:
+            }
+            break;
+            case SM_RANGE: {
                 int intVal;
                 try {
                     intVal = std::stoi(value);
@@ -592,63 +596,29 @@ namespace gz {
                     return false;
                 }
                 bool valid = true;
+                const std::vector<int>& av = std::get<std::vector<int>>(allowedValues.at(key).allowedValues);
                 // intVal >= lowest 
-                valid &= intVal >= std::get<int>(allowedValues.at(key).allowedValues[0]);
+                valid &= intVal >= av[0];
                 // intVal < highest 
-                valid &= intVal < std::get<int>(allowedValues.at(key).allowedValues[1]);
+                valid &= intVal < av[1];
                 // intVal == lowest + n * step
-                valid &= (intVal - std::get<int>(allowedValues.at(key).allowedValues[0])) % std::get<int>(allowedValues.at(key).allowedValues[2]) == 0;
+                valid &= (intVal - av[0]) % av[2] == 0;
                 return valid;
-                break;
+            }
+            break;
         } // switch
     }
 
     template<StringConvertible... CacheTypes>
     void SettingsManager<CacheTypes...>::initAllowedValues() {
         for (auto& [key, av] : allowedValues) {
-            isAllowedValueStructValid(av);
+            av.hasCorrectFormat();
         } // for
     }
 
     template<StringConvertible... CacheTypes>
-    void SettingsManager<CacheTypes...>::isAllowedValueStructValid(SettingsManagerAllowedValues& av) const {
-        switch (av.type) {
-            case SM_LIST:
-                if (av.allowedValues.empty()) {
-                    throw InvalidArgument("Allowed value vector needs to have at least one element, but is empty.", "SettingsManager::isAllowedValueStructValid");
-                }
-                for (size_t i = 0; i < av.allowedValues.size(); i++) {
-                    try {
-                            std::get<std::string>(av.allowedValues[i]);
-                        }
-                    catch (std::bad_variant_access& e) {
-                        throw InvalidType("AllowedValueType is SM_LIST but allowedValues[" + std::to_string(i) + "] is not of type <std::string>.", "SettingsManager::isAllowedValueStructValid");
-                    }
-                }
-                break;
-            case SM_RANGE:
-                if (av.allowedValues.size() == 2) {
-                    av.allowedValues.push_back(1);
-                }
-                else if (av.allowedValues.size() != 3) {
-                    throw InvalidArgument("AllowedValueType is SM_RANGE but allowedValues does not have size 2 or 3.", "SettingsManager::isAllowedValueStructValid");
-                }
-                try {
-                    std::get<int>(av.allowedValues[0]);
-                    std::get<int>(av.allowedValues[1]);
-                    std::get<int>(av.allowedValues[2]);
-                }
-                catch (std::bad_variant_access& e) {
-                    throw InvalidType("AllowedValueType is SM_RANGE but at least one value in allowedValues is not of type <int>.", "SettingsManager::isAllowedValueStructValid");
-                }
-                break;
-        }  // switch
-    }
-
-
-    template<StringConvertible... CacheTypes>
     void SettingsManager<CacheTypes...>::setAllowedValues(const std::string& key, SettingsManagerAllowedValues& av) {
-        isAllowedValueStructValid(av);
+        av.hasCorrectFormat();
         allowedValues[key] = std::move(av);
     }
 
