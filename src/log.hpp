@@ -39,22 +39,22 @@ namespace gz {
      * @details
      *  As of now you can log type T with instance t:
      *  -# Any @ref util::Stringy "string-like type": eg. std::string, std::string_view 
-     *  -# Any @ref util::WorksWithStdToString "type that works with std::to_string()"
-     *  -# Any @ref util::HasToStringMember "type that has a to_string() const member that returns a string"
+     *  -# Any @ref util::WorksWithStdToString "type that works with std::toString()"
+     *  -# Any @ref util::HasToStringMember "type that has a toString() const member that returns a string"
      *  -# Any @ref util::ContainerConvertibleToString "type that has a forward_iterator" which references any one of 1-3
      *  -# Any @ref util::PairConvertibleToString "type with t.first, t.second" provided t.first satisfies one of 1-4 and t.second satisfies 1-4
      *  -# Any @ref util::MapConvertibleToString "type that has a forward_iterator" which references 5
      *  -# Any @ref util::Vector2ConvertibleToString "type with t.x and t.y", provided t.x and t.y satisfy one of 1-6
      *  -# Any @ref util::Vector3ConvertibleToString "type with t.x, t.y, t.z", provided t.x, t.y, t.z satisfy one of 1-6
      *  -# Any @ref util::Vector4ConvertibleToString "type with t.x, t.y, t.z and t.w", provided t.x, t.y, t.z, t.w satisfy one of 1-6
-     *  -# Any @ref ConvertibleToString "type for which an overload of" <code>util::Stringy to_string(const T&)</code> exists in global or gz namespace
+     *  -# Any @ref ConvertibleToString "type for which an overload of" <code>util::Stringy toString(const T&)</code> exists in global or gz namespace
      *
      *  The higher number takes precedence in overload resolution for the log function.
      *
      *  1-6 include for example:
      *  - int, float, bool...
      *  - std::vector<std::string>, std::list<unsigned int>
-     *  - std::map<std::string, std::vector<A>> if A.to_string() returns a string - ...
+     *  - std::map<std::string, std::vector<A>> if A.toString() returns a string - ...
      */
     template<typename T>
     concept Logable = ConvertibleToString<T>;
@@ -68,9 +68,9 @@ namespace gz {
  *   If you want your custom data type to be logable, it easiest to provide a member function with this signature:
  *   @code
  *          public:
- *              std::string to_string() const;
+ *              std::string toString() const;
  *   @endcode
- *   Alternatively, or if the type is not a class overload <code> std::string to_string(const T& t) </code> in global or gz namespace.
+ *   Alternatively, or if the type is not a class overload <code> std::string toString(const T& t) </code> in global or gz namespace.
  *
  *  @subsection log_threads Thread safety
  *   Log can use a static mutex for thread safety. To use this feature, you have to #define LOG_MULTITHREAD at the top of log.hpp.
@@ -214,16 +214,15 @@ class Log {
             logLines[iter] += appendChars;
             vlog(" ", std::forward< Args>(args)...);
         }
-        /// Log anything where to_string exists
+        /// Log anything where toString exists
         template<ConvertibleToString T, Logable... Args>
         void vlog(const char* appendChars, T&& t,  Args&&... args) requires (!util::Stringy<T>) {
-            logLines[iter] += to_string(t);
+            logLines[iter] += toString(t);
             logLines[iter] += appendChars;
             vlog(" ", std::forward< Args>(args)...);
         }
 
         void vlog(const char* appendChars) {};
-
 
     private:
         /// Where the lines are stored
