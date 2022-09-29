@@ -654,7 +654,7 @@ namespace gz {
         if (filepath.empty()) {
             throw InvalidArgument("filename is not set", "readFromFile");
         }
-        std::unordered_map<std::string, std::string> map = readKeyValueFile(filepath);
+        std::unordered_map<std::string, std::string> map = readKeyValueFile<std::unordered_map<std::string, std::string>>(filepath);
         settings.insert(map.begin(), map.end());
         if (checkValidity) {
             // insert only valid values

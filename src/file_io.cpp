@@ -28,8 +28,20 @@ namespace gz {
         return success;
     }
 
-    std::unordered_map<std::string, std::string> readKeyValueFile(const std::string& filepath, bool removeSpaces) {
-        std::unordered_map<std::string, std::string> attr;
+
+    using pairSS = std::pair<std::string, std::string>;
+    using umapSS = std::unordered_map<std::string, std::string>;
+    using mapSS = std::map<std::string, std::string>;
+    using vecSS = std::vector<pairSS>;
+
+    inline void insert(vecSS& t, pairSS&& p) { t.emplace_back(p); }
+    inline void insert(umapSS& t, pairSS&& p) { t.emplace(p); }
+    inline void insert(mapSS& t, pairSS&& p) { t.emplace(p); }
+
+
+    template<ReadKeyValueFileImplemented T>
+    T readKeyValueFile(const std::string& filepath, bool removeSpaces) {
+        T attr;
         std::string line;
         int eqPos;
         std::ifstream file(filepath);
@@ -50,7 +62,7 @@ namespace gz {
                         line.erase(std::remove_if(line.begin(), line.begin() + eqPos + 2, [](unsigned char x) { return std::isspace(x); }), line.begin() + eqPos + 2);
                     }
                     eqPos = line.find("=");
-                    attr[line.substr(0, eqPos)] = line.substr(eqPos+1, line.length());
+                    insert(attr, std::pair{ line.substr(0, eqPos), line.substr(eqPos+1, line.length()) });
                 }
             }
             file.close();
@@ -60,6 +72,10 @@ namespace gz {
         }
         return attr;
     }
+
+    template umapSS readKeyValueFile<umapSS>(const std::string&, bool);
+    template mapSS readKeyValueFile<mapSS>(const std::string&, bool);
+    template vecSS readKeyValueFile<vecSS>(const std::string&, bool);
 
     template bool writeKeyValueFile<std::hash<std::string>, std::equal_to<std::string>>(const std::string&, const std::unordered_map<std::string, std::string, std::hash<std::string>, std::equal_to<std::string>>&);
     template bool writeKeyValueFile<util::string_hash, std::equal_to<>>(const std::string&, const std::unordered_map<std::string, std::string, util::string_hash, std::equal_to<>>&);

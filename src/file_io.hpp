@@ -16,12 +16,19 @@ namespace gz {
     template<typename Hash, typename Pred>
     bool writeKeyValueFile(const std::string& filepath, const std::unordered_map<std::string, std::string, Hash, Pred>& content);
 
+    template<typename T>
+    concept ReadKeyValueFileImplemented = 
+        std::same_as<T, std::vector<std::pair<std::string, std::string>>> ||
+        std::same_as<T, std::map<std::string, std::string>> ||
+        std::same_as<T, std::unordered_map<std::string, std::string>> ;
+
     /**
      * @brief Read a file that contains key = value pairs
      * @throws FileIOError
      * @see @ref fio_t_key_value "Key-Value filetype"
      */
-    std::unordered_map<std::string, std::string> readKeyValueFile(const std::string& filepath, bool removeSpaces=false);
+    template<ReadKeyValueFileImplemented T>
+    T readKeyValueFile(const std::string& filepath, bool removeSpaces=false);
 }
 
 /**
@@ -33,7 +40,7 @@ namespace gz {
  * @section fio_filetypes Filetypes
  *  @subsection fio_t_key_value Simple Key-Value file
  *   A file that contains key - value pairs in each line, separated with "=".
- *   Any number of whitespaces around the separator is allowed.
+ *   Whitespaces around the separator are allowed.
  *   If the first character of a line is "#", the whole line is a comment.
  *   Example:
  *   @code
