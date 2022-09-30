@@ -5,17 +5,40 @@
 #include "util/string_conversion.hpp"
 #include "util/string.hpp"
 
-#include <exception>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <set>
+#include <type_traits>
 #include <typeinfo>
 #include <unordered_map>
 #include <variant>
 
 namespace gz {
+
+    template<typename T, typename... PackTypes>
+    concept TypeIsInPack = (std::same_as<T, PackTypes> || ...); 
+
+    template<typename T>
+    concept Number = std::integral<T> || std::floating_point<T>;
+
+    template<typename T>
+    concept NotNumber = !Number<T>;
+
+    /* template<typename T, typename... PackTypes> */
+    /* concept IntegralInPack = std::integral<T> && TypeIsInPack<T, PackTypes...>; */
+
+    /* template<typename T, typename... PackTypes> */
+    /* concept FloatingPointInPack = std::floating_point<T> && TypeIsInPack<T, PackTypes...>; */
+
+    template<typename T, typename... PackTypes>
+    concept NumberInPack = Number<T> && TypeIsInPack<T, PackTypes...>;
+
+    template<typename T, typename... PackTypes>
+    concept NotNumberInPack = NotNumber<T> && TypeIsInPack<T, PackTypes...>;
+
+
     
     enum SettingsManagerAllowedValueTypes {
         SM_RANGE, SM_LIST,
@@ -25,24 +48,36 @@ namespace gz {
      * @brief Information about the allowed values
      * @details
      *  If type is
-     *  - SM_RANGE -> allowedValues must be an integer [ low, high, step ], the allowed value can then be in [ low, high ) but must be low + n*step
+     *  - SM_RANGE -> allowedValues must contain two numbers [min, max]
      *  - SM_LIST -> allowedValues must contain strings, which are the allowed values
      */
+    template<StringConvertible... CacheTypes>
     struct SettingsManagerAllowedValues {
         SettingsManagerAllowedValueTypes type;
-        std::variant<std::vector<int>, std::vector<std::string>> allowedValues;
-        /**
-         * @brief Check if struct is valid.
-         * @details
-         *  If type is SM_RANGE and allowedValues only has 2 values (lowest and highest value), the third (step) value=1 is appended
-         * @throws InvalidArgument if it is not valid
-         */
-        void hasCorrectFormat();
+        std::variant<std::vector<std::string>, std::vector<CacheTypes>... > allowedValues;
     };
+    /**
+     * @brief Check if struct is valid.
+     * @throws InvalidType if:
+     *  - the type contained in the variant allowedValues is not T
+     *  - type is SM_RANGE but T is not an integral or floating point type
+     *  
+     * @throws InvalidArgument if: 
+     *  - vector contained in allowedValues is empty
+     *  - type is SM_RANGE but allowedValues is not of size 2
+     *  - type is SM_RANGE but allowedValues[0] >= allowedValues[1]
+     */
+    template<Number T, StringConvertible... CacheTypes>
+    void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& ab);
+    template<NotNumber T, StringConvertible... CacheTypes>
+    void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& av);
+    /* template<std::integral T, StringConvertible... CacheTypes> */
+    /* void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& ab); */
 
     /**
      * @brief Creation info for SettingsManager
      */
+    template<StringConvertible... CacheTypes>
     struct SettingsManagerCreateInfo {
         /**
          * @brief (Optional) Path to the file containing the settings
@@ -69,7 +104,7 @@ namespace gz {
          * @brief Wether to write the values to filepath when destroying the SettingsManager
          */
         bool writeFileOnExit = false;
-        /**
+        /*
          * @brief A map containing SettingsMangerAllowedValues to restrict values
          * @details
          *  If allowedValues contains key, its value must be allowed by SettingsMangerAllowedValues struct.
@@ -80,7 +115,7 @@ namespace gz {
          *  - in SettingsManager::set: depends on throwExceptionWhenNewValueNotAllowed
          * @see sm_validity 
          */
-        util::unordered_string_map<SettingsManagerAllowedValues> allowedValues;
+        /* util::unordered_string_map<SettingsManagerAllowedValues<CacheTypes...>> allowedValues; */
         /**
          * @brief Wether to throw an exception when trying to set an invalid value
          */  
@@ -123,7 +158,7 @@ namespace gz {
              * @details
              *  The maps from createInfo are no longer valid after this function.
              */
-            SettingsManager(SettingsManagerCreateInfo& createInfo);
+            SettingsManager(SettingsManagerCreateInfo<CacheTypes...>& createInfo);
             ~SettingsManager();
             SettingsManager(const SettingsManager&) = delete;
             SettingsManager& operator=(const SettingsManager&) = delete;
@@ -147,7 +182,7 @@ namespace gz {
              * @throws InvalidType if T is not a registered type
              * @throws InvalidType if type T can not be constructed from value (string)
              */
-            template<StringConvertible T>
+            template<TypeIsInPack<CacheTypes...> T>
             const T& get(const std::string& key);
 
             /**
@@ -169,8 +204,8 @@ namespace gz {
              * @throws InvalidType if type T can not be constructed from value (string)
              * @throws InvalidType if the fallback can not be converted to string
              */
-            template<StringConvertible T>
-            const T& getOr(const std::string& key, const T& fallback);
+            template<TypeIsInPack<CacheTypes...> T>
+            const T& getOr(const std::string& key, const T& fallback) requires std::copy_constructible<T>;
 
             /**
              * @brief Same as get, but returns a copy of value and not a const reference
@@ -180,7 +215,7 @@ namespace gz {
             /**
              * @brief Same as get<T>, but returns a copy of value and not a const reference
              */
-            template<StringConvertible T>
+            template<TypeIsInPack<CacheTypes...> T>
             const T getCopy(const std::string& key);
 
             /**
@@ -191,7 +226,7 @@ namespace gz {
             /**
              * @brief Same as getOr<T>, but returns a copy of value and not a const reference
              */
-            template<StringConvertible T>
+            template<TypeIsInPack<CacheTypes...> T>
             const T getCopyOr(const std::string& key, const T& fallback);
 
         /**
@@ -215,7 +250,7 @@ namespace gz {
              * @throws InvalidType if T is not a registered type
              * @throws Exception if an exception occurs during a potential @red sm_callback "callback function"
              */
-            template<StringConvertible T>
+            template<TypeIsInPack<CacheTypes...> T>
             void set(const std::string& key, const T& value);
         /**
          * @}
@@ -260,17 +295,31 @@ namespace gz {
              * @ingroup sm_allowed_values
              * @brief Check if a value is allowed for key
              */
-            bool isValueAllowed(const std::string& key, const std::string& value) const noexcept;
+            template<NumberInPack<std::string, CacheTypes...> T>
+            bool isValueAllowed(const std::string& key, const T& value) const noexcept;
+            /* template<IntegralInPack<std::string, CacheTypes...> T> */
+            /* bool isValueAllowed(const std::string& key, const T& value) const noexcept; */
+            template<NotNumberInPack<std::string, CacheTypes...> T>
+            bool isValueAllowed(const std::string& key, const T& value) const noexcept;
 
             /**
              * @ingroup sm_allowed_values
              * @brief Set the allowed values for a key
+             * @param key The key where the allowedValues should be applied
+             * @param type The type containing information on the values in allowedValues
+             * @param allowedValues Vector containing:
+             *  - a list of allowed values if type=SM_LIST
+             *  - [min, max] if type=SM_RANGE
+             *
              * @details
              *  If the current value for key is now invalid, it will be removed.
-             *  values struct is no longer valid after this function
-             * @throws InvalidArgument if the values struct is invalid
+             *  allowedValues vector is no longer valid after this function
+             * @throws InvalidArgument if call is @ref SettingsMangerAllowedValues::hasCorrectFormat "invalid"
              */
-            void setAllowedValues(const std::string& key, SettingsManagerAllowedValues& values);
+            template<TypeIsInPack<CacheTypes...> T>
+            void setAllowedValues(const std::string& key, std::vector<T>& allowedValues, SettingsManagerAllowedValueTypes type=SM_LIST);
+            template<TypeIsInPack<CacheTypes...> T>
+            void setAllowedValues(const std::string& key, std::vector<T>&& allowedValues, SettingsManagerAllowedValueTypes type=SM_LIST) { setAllowedValues<T>(key, allowedValues, type); };
 
             /**
              * @ingroup sm_allowed_values
@@ -308,8 +357,8 @@ namespace gz {
             void initCache() {};
             std::set<std::string> cacheTypes;
             util::unordered_string_map<util::unordered_string_map<std::variant<std::monostate, CacheTypes...>>> settingsCache;
-            template<StringConvertible T>
-            inline bool isRegisteredType();
+            /* template<StringConvertible T> */
+            /* inline bool isRegisteredType(); */
         /**
          * @}
          */
@@ -324,7 +373,7 @@ namespace gz {
              * @throws InvalidArgument if any of the initial allowedValues structs is invalid
              */
             void initAllowedValues();
-            util::unordered_string_map<SettingsManagerAllowedValues> allowedValues;
+            util::unordered_string_map<SettingsManagerAllowedValues<CacheTypes...>> allowedValues;
             bool throwExceptionWhenNewValueNotAllowed;
         /**
          * @}
@@ -344,14 +393,104 @@ namespace gz {
 }
 
 namespace gz {
+    /* template<StringConvertible... CacheTypes, NumberInPack<std::string, CacheTypes...> T> */
+    /* template<std::integral T, StringConvertible... CacheTypes> */
+    /* void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& av) { */
+    /*     const std::vector<T>* v = nullptr; */
+    /*     try { */
+    /*         v = &std::get<std::vector<T>>(av.allowedValues); */
+    /*     } */
+    /*     catch (std::bad_variant_access& e) { */
+    /*         throw InvalidType("allowedValues variant does not contain type T", "SettingsManagerAllowedValues::hasCorrectFormat"); */
+    /*     } */
+    /*     switch (av.type) { */
+    /*         case SM_LIST: */
+    /*             if (v->empty()) { */
+    /*                 throw InvalidArgument("Allowed value vector needs to have at least one element when AllowedValueType is SM_LIST, but is empty.", "SettingsManagerAllowedValues::hasCorrectFormat"); */
+    /*             } */
+    /*             break; */
+    /*         case SM_RANGE: */
+    /*             static_assert(std::floating_point<T> || std::integral<T>, "Type must be integral or floating point when using SM_RANGE."); */
+    /*             std::size_t size = std::get<std::vector<int>>(av.allowedValues).size(); */
+    /*             if (size == 2) { */
+    /*                 v->push_back(static_cast<T>(1)); */
+    /*             } */
+    /*             else if (size != 3) { */
+    /*                 throw InvalidArgument("AllowedValueType is SM_RANGE with integral type but allowedValues does not have size 2 or 3.", "SettingsManagerAllowedValues::hasCorrectFormat"); */
+    /*             } */
+    /*             // check min < max */
+    /*             if (v[0] >= v[1]) { */
+    /*                 throw InvalidArgument("AllowedValueType is SM_RANGE but allowedValues[0] is larger than allowedValues[1].", "SettingsManagerAllowedValues::hasCorrectFormat"); */
+    /*             } */
+    /*             break; */
+    /*     }  // switch */
+    /* } */
 
+    template<Number T, StringConvertible... CacheTypes>
+    void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& av) {
+        static_assert(TypeIsInPack<T, CacheTypes...>, "T must be be in pack CacheTypes");
+        const std::vector<T>* v = nullptr;
+        try {
+            v = &std::get<std::vector<T>>(av.allowedValues);
+        }
+        catch (std::bad_variant_access& e) {
+            throw InvalidType("allowedValues variant does not contain type T", "SettingsManagerAllowedValues::hasCorrectFormat");
+        }
+        switch (av.type) {
+            case SM_LIST:
+                if (v->empty()) {
+                    throw InvalidArgument("Allowed value vector needs to have at least one element when AllowedValueType is SM_LIST, but is empty.", "SettingsManagerAllowedValues::hasCorrectFormat");
+                }
+                break;
+            case SM_RANGE:
+                static_assert(std::floating_point<T> || std::integral<T>, "Type must be integral or floating point when using SM_RANGE.");
+                std::size_t size = v->size();
+                if (size != 2) {
+                    throw InvalidArgument("AllowedValueType is SM_RANGE with floating point type but allowedValues does not have size 2.", "SettingsManagerAllowedValues::hasCorrectFormat");
+                }
+                // check min <= max
+                if (v->at(0) > v->at(1)) {
+                    /* throw InvalidArgument("AllowedValueType is SM_RANGE but allowedValues[0] >= allowedValues[1].", "SettingsManagerAllowedValues::hasCorrectFormat"); */
+                    throw InvalidArgument("AllowedValueType is SM_RANGE but allowedValues[0]=" + toString(v->at(0)) + " > " + toString(v->at(1)) + "=allowedValues[1].", "SettingsManagerAllowedValues::hasCorrectFormat");
+                }
+                break;
+        }  // switch
+    }
+
+    /* template<StringConvertible... CacheTypes, NotNumberInPack<std::string, CacheTypes...> T> */
+    template<NotNumber T, StringConvertible... CacheTypes>
+    void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& av) {
+        static_assert(TypeIsInPack<T, CacheTypes...>, "T must be be in pack CacheTypes");
+        const std::vector<T>* v = nullptr;
+        try {
+            v = &std::get<std::vector<T>>(av.allowedValues);
+        }
+        catch (std::bad_variant_access& e) {
+            throw InvalidType("allowedValues variant does not contain type T", "SettingsManagerAllowedValues::hasCorrectFormat");
+        }
+        switch (av.type) {
+            case SM_LIST:
+                if (v->empty()) {
+                    throw InvalidArgument("Allowed value vector needs to have at least one element when AllowedValueType is SM_LIST, but is empty.", "SettingsManagerAllowedValues::hasCorrectFormat");
+                }
+                break;
+            case SM_RANGE:
+                throw InvalidArgument("Type must be integral or floating point when using SM_RANGE, but is <" + std::string(typeid(T).name()) + ">");
+                break;
+        }  // switch
+    }
+
+
+// 
+// SETTINGS MANAGER 
+//
     template<StringConvertible... CacheTypes>
-    SettingsManager<CacheTypes...>::SettingsManager(SettingsManagerCreateInfo& createInfo) {
+    SettingsManager<CacheTypes...>::SettingsManager(SettingsManagerCreateInfo<CacheTypes...>& createInfo) {
         insertFallbacks = createInfo.insertFallbacks;
         writeFileOnExit = createInfo.writeFileOnExit;
         throwExceptionWhenNewValueNotAllowed = createInfo.throwExceptionWhenNewValueNotAllowed;
 
-        allowedValues = std::move(createInfo.allowedValues);
+        /* allowedValues = std::move(createInfo.allowedValues); */
         settings = std::move(createInfo.initialValues);
 
         filepath = createInfo.filepath;
@@ -360,14 +499,13 @@ namespace gz {
         }
 
         // erase invalid initalValues 
-        for (auto it = settings.begin(); it != settings.end(); it++) {
-            if (!isValueAllowed(it->first, it->second)) {
-                it = settings.erase(it);
-            }
-        }
+        /* for (auto it = settings.begin(); it != settings.end(); it++) { */
+        /*     if (!isValueAllowed<std::string>(it->first, it->second)) { */
+        /*         it = settings.erase(it); */
+        /*     } */
+        /* } */
 
         initCache<void, CacheTypes...>();
-
     }
 
     template<StringConvertible... CacheTypes>
@@ -384,11 +522,11 @@ namespace gz {
         initCache<void, CacheTypesOther...>();
     }
 
-    template<StringConvertible... CacheTypes>
-    template<StringConvertible T>
-    inline bool SettingsManager<CacheTypes...>::isRegisteredType() {
-        return cacheTypes.contains(typeid(T).name());
-    }
+    /* template<StringConvertible... CacheTypes> */
+    /* template<StringConvertible T> */
+    /* inline bool SettingsManager<CacheTypes...>::isRegisteredType() { */
+    /*     return cacheTypes.contains(typeid(T).name()); */
+    /* } */
 
 //
 // GET
@@ -403,23 +541,27 @@ namespace gz {
     }
 
     template<StringConvertible... CacheTypes>
-    template<StringConvertible T>
+    template<TypeIsInPack<CacheTypes...> T>
     const T& SettingsManager<CacheTypes...>::get(const std::string& key) {
-        if (!isRegisteredType<T>()) {
-            throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::get");
-        }
+        static_assert(TypeIsInPack<T, CacheTypes...>, "Type T is not in parameter pack CacheTypes...");
+        /* if (!isRegisteredType<T>()) { */
+        /*     throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::get"); */
+        /* } */
         if (!settings.contains(key)) {
             throw InvalidArgument("Invalid key: '" + key + "'", "SettingsManager::get");
         }
         // if not cached -> cache
         if (!settingsCache[typeid(T).name()].contains(key)) {
             try {
-                settingsCache[typeid(T).name()][key] = fromString<T>(settings[key]);
+                /* settingsCache[typeid(T).name()][key].emplace(fromString<T>(settings[key])); */
+                /* settingsCache[typeid(T).name()][key](fromString<T>(settings[key])); */
+                settingsCache[typeid(T).name()][key] = std::variant<std::monostate, CacheTypes...>(fromString<T>(settings[key]));
             }
             catch (...) {
-                throw InvalidType("Could not convert value '" + settings[key] + "' to type '" + typeid(T).name() + "'. Key: '" + key + "'", "SettingsManager::get");
+                throw InvalidType("Could not convert value '" + settings[key] + "' to type '" + std::string(typeid(T).name()) + "'. Key: '" + key + "'", "SettingsManager::get");
             }
         }
+        /* std::cout << "get<" << typeid(T).name() << ">\n"; */
         return std::get<T>(settingsCache[typeid(T).name()][key]);
     }
 
@@ -439,11 +581,11 @@ namespace gz {
     }
 
     template<StringConvertible... CacheTypes>
-    template<StringConvertible T>
-    const T& SettingsManager<CacheTypes...>::getOr(const std::string& key, const T& fallback) {
-        if (!isRegisteredType<T>()) {
-            throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::getOr");
-        }
+    template<TypeIsInPack<CacheTypes...> T>
+    const T& SettingsManager<CacheTypes...>::getOr(const std::string& key, const T& fallback) requires std::copy_constructible<T> {
+        /* if (!isRegisteredType<T>()) { */
+        /*     throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::getOr"); */
+        /* } */
         if (settings.contains(key)) {
             return get<T>(key);
         }
@@ -455,7 +597,9 @@ namespace gz {
                 catch (...) {
                     throw InvalidType("Can not convert fallback value to string. Key: '" + key + "'", "SettingsManager::getOr");
                 }
-                settingsCache[typeid(T).name()][key] = fallback;
+                /* static_assert(CanInsertTIntoVariant<T, std::monostate, CacheTypes...>, "ERROR: Can not insert T into variant with monostate, CacheTypes..."); */
+                /* settingsCache[typeid(T).name()][key].emplace(fallback); */
+                settingsCache[typeid(T).name()][key] = std::variant<std::monostate, CacheTypes...>(T(fallback));
             }
             return fallback;
         }
@@ -467,7 +611,7 @@ namespace gz {
         return get(key);
     }
     template<StringConvertible... CacheTypes>
-    template<StringConvertible T>
+    template<TypeIsInPack<CacheTypes...> T>
     const T SettingsManager<CacheTypes...>::getCopy(const std::string& key) {
         return get<T>(key);
     }
@@ -477,7 +621,7 @@ namespace gz {
         return getOr(key, fallback);
     }
     template<StringConvertible... CacheTypes>
-    template<StringConvertible T>
+    template<TypeIsInPack<CacheTypes...> T>
     const T SettingsManager<CacheTypes...>::getCopyOr(const std::string& key, const T& fallback) {
         return getOr<T>(key, fallback);
     }
@@ -488,7 +632,7 @@ namespace gz {
     template<StringConvertible... CacheTypes>
     void SettingsManager<CacheTypes...>::set(const std::string& key, const std::string& value) {
         // check if new value is allowed
-        if (!isValueAllowed(key, value)) {
+        if (!isValueAllowed<std::string>(key, value)) {
             if (throwExceptionWhenNewValueNotAllowed) {
                 throw InvalidArgument("Value '" + value + "' is not allowed. Key: '" + key + "'", "SettingsManager::set");
             }
@@ -518,11 +662,11 @@ namespace gz {
     }
 
     template<StringConvertible... CacheTypes>
-    template<StringConvertible T>
+    template<TypeIsInPack<CacheTypes...> T>
     void SettingsManager<CacheTypes...>::set(const std::string& key, const T& value) {
-        if (!isRegisteredType<T>()) {
-            throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::set<" + std::string(typeid(T).name()) + ">");
-        }
+        /* if (!isRegisteredType<T>()) { */
+        /*     throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::set<" + std::string(typeid(T).name()) + ">"); */
+        /* } */
         // convert to string
         std::string s;
         try {
@@ -535,7 +679,7 @@ namespace gz {
             throw InvalidArgument("Could not convert value to string, an exception occured. Key: '" + key + "'", "SettingsManager::set<" + std::string(typeid(T).name()) + ">");
         }
         // check if new value is allowed
-        if (!isValueAllowed(key, s)) {
+        if (!isValueAllowed<T>(key, value)) {
             if (throwExceptionWhenNewValueNotAllowed) {
                 throw InvalidArgument("Value '" + s + "' is not allowed. Key: '" + key + "'", "SettingsManager::set<" + std::string(typeid(T).name()) + ">");
             }
@@ -555,7 +699,7 @@ namespace gz {
         // Call the callback, if any
         if (settingsCallbackFunctions.contains(key)) {
             try {
-                settingsCallbackFunctions[key](value);
+                settingsCallbackFunctions[key](s);
             }
             catch (std::exception& e) {
                 throw Exception("An exception occured in the callback for changing a value: '" + std::string(e.what()) + "'. Key: '" + key + "'", "SettingsManager::set<" + std::string(typeid(T).name()) + ">");
@@ -569,15 +713,61 @@ namespace gz {
 //
 // ALLOWED VALUES
 //
-   template<StringConvertible... CacheTypes>
-    bool SettingsManager<CacheTypes...>::isValueAllowed(const std::string& key, const std::string& value) const noexcept {
+    /* template<StringConvertible... CacheTypes> */
+    /* template<IntegralInPack<std::string, CacheTypes...> T> */
+    /* bool SettingsManager<CacheTypes...>::isValueAllowed(const std::string& key, const T& value) const noexcept { */
+    /*     if (!allowedValues.contains(key)) { */
+    /*         return true; */
+    /*     } */
+    /*     const std::vector<T>* av = nullptr; */
+    /*     try { */
+    /*         av = &std::get<std::vector<T>>(allowedValues.at(key).allowedValues); */
+    /*     } */
+    /*     catch (std::bad_variant_access&) { */
+    /*         return false; */
+    /*     } */
+
+    /*     switch (allowedValues.at(key).type) { */
+    /*         case SM_LIST: { */
+    /*             for (auto it = av->begin(); it != av->end(); it++) { */
+    /*                 if (*it == value) { */
+    /*                     return true; */
+    /*                 } */
+    /*             } */
+    /*         } */
+    /*         break; */
+    /*         case SM_RANGE: { */
+    /*             bool valid = true; */
+    /*             // value >= lowest */ 
+    /*             valid &= value >= av->at(0); */
+    /*             // value < highest */ 
+    /*             valid &= value < av->at(1); */
+    /*             // value == lowest + n * step */
+    /*             valid &= (value - av->at(0)) % av->at(2) == 0; */
+    /*             return valid; */
+    /*         } */
+    /*         break; */
+    /*     } // switch */
+    /*     return false; */
+    /* } */
+
+    template<StringConvertible... CacheTypes>
+    template<NumberInPack<std::string, CacheTypes...> T>
+    bool SettingsManager<CacheTypes...>::isValueAllowed(const std::string& key, const T& value) const noexcept {
         if (!allowedValues.contains(key)) {
             return true;
         }
+        const std::vector<T>* av = nullptr;
+        try {
+            av = &std::get<std::vector<T>>(allowedValues.at(key).allowedValues);
+        }
+        catch (std::bad_variant_access&) {
+            return false;
+        }
+
         switch (allowedValues.at(key).type) {
             case SM_LIST: {
-                const std::vector<std::string>& av = std::get<std::vector<std::string>>(allowedValues.at(key).allowedValues);
-                for (auto it = av.begin(); it != av.end(); it++) {
+                for (auto it = av->begin(); it != av->end(); it++) {
                     if (*it == value) {
                         return true;
                     }
@@ -585,41 +775,74 @@ namespace gz {
             }
             break;
             case SM_RANGE: {
-                int intVal;
-                try {
-                    intVal = std::stoi(value);
-                }
-                catch (std::invalid_argument) {
-                    return false;
-                }
-                catch (std::out_of_range) {
-                    return false;
-                }
                 bool valid = true;
-                const std::vector<int>& av = std::get<std::vector<int>>(allowedValues.at(key).allowedValues);
-                // intVal >= lowest 
-                valid &= intVal >= av[0];
-                // intVal < highest 
-                valid &= intVal < av[1];
-                // intVal == lowest + n * step
-                valid &= (intVal - av[0]) % av[2] == 0;
+                // value >= lowest 
+                valid &= value >= av->at(0);
+                // value <= highest 
+                valid &= value <= av->at(1);
                 return valid;
             }
             break;
         } // switch
+        return false;
+    }
+    template<StringConvertible... CacheTypes>
+    template<NotNumberInPack<std::string, CacheTypes...> T>
+    bool SettingsManager<CacheTypes...>::isValueAllowed(const std::string& key, const T& value) const noexcept {
+        if (!allowedValues.contains(key)) {
+            return true;
+        }
+        const std::vector<T>* av = nullptr;
+        try {
+            av = &std::get<std::vector<T>>(allowedValues.at(key).allowedValues);
+        }
+        catch (std::bad_variant_access&) {
+            return false;
+        }
+        switch (allowedValues.at(key).type) {
+            case SM_LIST: {
+                for (auto it = av->begin(); it != av->end(); it++) {
+                    if (*it == value) {
+                        return true;
+                    }
+                }
+            }
+            break;
+            case SM_RANGE: {
+                return false;
+            }
+            break;
+        } // switch
+        return false;
     }
 
     template<StringConvertible... CacheTypes>
-    void SettingsManager<CacheTypes...>::initAllowedValues() {
-        for (auto& [key, av] : allowedValues) {
-            av.hasCorrectFormat();
-        } // for
-    }
-
-    template<StringConvertible... CacheTypes>
-    void SettingsManager<CacheTypes...>::setAllowedValues(const std::string& key, SettingsManagerAllowedValues& av) {
-        av.hasCorrectFormat();
+    template<TypeIsInPack<CacheTypes...> T>
+    void SettingsManager<CacheTypes...>::setAllowedValues(const std::string& key, std::vector<T>& allowed_vector, SettingsManagerAllowedValueTypes type) {
+        /* std::cout << "setAllowedValues: " << typeid(std::vector<T>).name() << " - " << typeid(T).name() << "\n"; */
+        SettingsManagerAllowedValues<CacheTypes...> av;
+        av.type = type;
+        av.allowedValues = std::variant<std::vector<std::string>, std::vector<CacheTypes>...>(std::move(allowed_vector));
+        hasCorrectFormat<T>(av);
         allowedValues[key] = std::move(av);
+        // erase the current value if it is no longer allowed
+        if (settingsCache[typeid(T).name()].contains(key)) {
+            /* std::cout << "setAllowedValues <" << typeid(T).name() << ">\n"; */
+            if (!isValueAllowed<T>(key, std::get<T>(settingsCache[typeid(T).name()].at(key)))) {
+                settings.erase(key);
+                settingsCache[typeid(T).name()].erase(key);
+            }
+        }
+        else if (settings.contains(key)) {
+            try {
+                if (!isValueAllowed<T>(key, fromString<T>(settings.at(key)))) {
+                    settings.erase(key);
+                }
+            }
+            catch (...) {
+                settings.erase(key);
+            }
+        }
     }
 
     template<StringConvertible... CacheTypes>
@@ -659,7 +882,7 @@ namespace gz {
         if (checkValidity) {
             // insert only valid values
             for (auto it = map.begin(); it != map.end(); it++) {
-                if (isValueAllowed(it->first, it->second)) {
+                if (isValueAllowed<std::string>(it->first, it->second)) {
                     settings.insert(*it);
                 }
             }
