@@ -183,7 +183,7 @@ namespace gz {
     inline std::string toString(const T& t) {
         std::string s = "( ";
         s += toString(t.x) + ", ";
-        s += toString(t.z) + " )";
+        s += toString(t.y) + " )";
         return s;
     }
 
