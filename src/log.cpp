@@ -5,7 +5,6 @@
 #include <ctime>
 
 namespace gz {
-
     namespace fs = std::filesystem;
 
     const char* COLORS[] = {
@@ -52,8 +51,8 @@ namespace gz {
 #ifdef LOG_MULTITHREAD 
     std::mutex Log::mtx;
 #endif
-    Log::Log(std::string logfile, bool showLog, bool storeLog, std::string&& prefix_, Color prefixColor, Color timeColor, bool clearLogfileOnRestart, unsigned int writeAfterLines)
-        : iter(0), writeToFileAfterLines(writeAfterLines), showLog(showLog), storeLog(storeLog), prefixColor(prefixColor), prefix(prefix_ + ": "), prefixLength(prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1), timeColor(timeColor) {
+    Log::Log(std::string logfile, bool showLog, bool storeLog, std::string&& prefix_, Color prefixColor, bool showTime, Color timeColor, bool clearLogfileOnRestart, unsigned int writeAfterLines)
+        : iter(0), writeToFileAfterLines(writeAfterLines), storeLog(storeLog), showLog(showLog), prefixColor(prefixColor), prefix(prefix_ + ": "), prefixLength(prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1), timeColor(timeColor) {
         // get absolute path to the logfile
         fs::path logpath(logfile);
         if (!logpath.is_absolute()) {
@@ -78,6 +77,59 @@ namespace gz {
             for (size_t i = 0; i < logLines.size(); i++) {
                 logLines[i].reserve(LOG_RESERVE_STRING_SIZE);
             }
+        }
+
+        if (showTime) {
+            prefixLength = prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1;
+        }
+        else {
+            prefixLength = prefix.size();
+        }
+
+        /* log("Initialising log with settings: logFile: " + logFile + */ 
+        /*         ", showLog - " + boolToString(showLog) + ", storeLog - " + boolToString(storeLog)); */
+    }
+
+
+    Log::Log(LogCreateInfo&& ci)
+        : iter(0), 
+            writeToFileAfterLines(ci.writeAfterLines), storeLog(ci.storeLog), 
+            showLog(ci.showLog), 
+            prefixColor(ci.prefixColor), 
+            prefix(std::move(ci.prefix) + ": "), 
+            showTime(ci.showTime), timeColor(ci.timeColor)
+    {
+        // get absolute path to the logfile
+        fs::path logpath(ci.logfile);
+        if (!logpath.is_absolute()) {
+            logpath = fs::current_path() / logpath;
+        }
+        // create directory of logfile
+        if (!fs::is_directory(logpath.parent_path())) {
+            fs::create_directory(logpath.parent_path());
+        }
+        logFile = logpath.string();
+
+        // if clearLogfileOnRestart, open the file to clear it
+        if (ci.clearLogfileOnRestart and fs::is_regular_file(logpath)) {
+            std::ofstream file(logFile, std::ofstream::trunc);
+            file.close();
+        }
+
+        if (writeToFileAfterLines == 0) { writeToFileAfterLines = 1; }
+        logLines.resize(writeToFileAfterLines);
+        // reserve memory for strings
+        if (LOG_RESERVE_STRING_SIZE > 0) {
+            for (size_t i = 0; i < logLines.size(); i++) {
+                logLines[i].reserve(LOG_RESERVE_STRING_SIZE);
+            }
+        }
+
+        if (showTime) {
+            prefixLength = prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1;
+        }
+        else {
+            prefixLength = prefix.size();
         }
 
         /* log("Initialising log with settings: logFile: " + logFile + */ 

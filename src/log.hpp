@@ -63,6 +63,30 @@ namespace gz {
     template<typename T>
     concept Logable = ConvertibleToString<T>;
 
+    /**
+     * @brief Create info for a Log object
+     */
+    struct LogCreateInfo {
+        /// @brief Absolute or relative path to the logfile
+        std::string logfile = "log.log";
+        /// @brief Wether to print the messages to stdout
+        bool showLog = true;
+        /// @brief Wether to save the messages to the logfile
+        bool storeLog = true;
+        /// @brief A prefix that comes between the timestamp and the message. ": " is automatically appended to the prefix
+        std::string prefix = "";
+        /// @brief The color of the prefix
+        Color prefixColor = RESET;
+        /// @brief Wether to prepend a timestamp to the message
+        bool showTime = true;
+        /// @brief The color of the timestamp
+        Color timeColor = RESET;
+        /// @brief If true, clear the logfile when initializing the log. That means only the log of most recent run is stored
+        bool clearLogfileOnRestart = true;
+        /// @brief Actually write the log to the logfile after so many lines. Must be at least 1
+        unsigned int writeAfterLines = 100;
+    };
+
 /**
  * @brief Manages printing messages to stdout and to logfiles.
  * @details
@@ -94,23 +118,27 @@ class Log {
     public:
         /**
          * @brief Creates a log object, which can print messages to stdout and/or write them to a log file
-         * @details By creating multiple instances with different parameters, logs can be easily turned on/off for different usages.
-         *  If not existent, the parent directory of the logfile and the file itself will be created when initializing a log.
+         * @details 
+         *  By creating multiple instances with different parameters, logs can be easily turned on/off for different usages.
          *
-         * @param logfile: Absolute or relative path to the logfile
-         * @param showLog: Wether to print the messages to stdout
-         * @param storeLog: Wether to save the messages to the logfile
-         * @param prefix: A prefix that comes between the timestamp and the message. ": " is automatically appended to the prefix
-         * @param prefixColor: The color of the prefix
-         * @param clearLogfileOnRestart: If true, clear the logfile when initializing the log. That means only the log of most recent run is stored
-         * @param writeAfterLines: Actually write the log to the logfile after so many lines. Must be at least 1
-         *
+         *  The overload using LogCreateInfo might be more clear, so I recommend using that.
          * @note Colors will only be shown when written to stdout, not in the logfile.
+         * @deprecated Use the overload using the LogCreateInfo struct
          */
-        Log(std::string logfile="log.log", bool showLog=true, bool storeLog=true, std::string&& prefix="", Color prefixColor=RESET, Color timeColor=RESET, bool clearLogfileOnRestart=true, unsigned int writeAfterLines=100);
+        Log(std::string logfile="log.log", bool showLog=true, bool storeLog=true, std::string&& prefix="", Color prefixColor=RESET, bool showTime=true, Color timeColor=RESET, bool clearLogfileOnRestart=true, unsigned int writeAfterLines=100);
+
+        /**
+         * @brief Creates a log object, which can print messages to stdout and/or write them to a log file
+         * @details 
+         *  By creating multiple instances with different parameters, logs can be easily turned on/off for different usages.
+         */
+        Log(LogCreateInfo&& createInfo);
 
         ~Log();
 
+    // 
+    // ACTUAL LOGGING
+    //
         /**
          * @brief Logs a message
          * @details Depending on the settings of the log instance, the message will be printed to stdout and/or written to the logfile.
@@ -125,8 +153,13 @@ class Log {
 #ifdef LOG_MULTITHREAD 
             mtx.lock();
 #endif
-            getTime();
-            logLines[iter] = time;
+            if (showTime) {
+                getTime();
+                logLines[iter] = time;
+            }
+            else {
+                logLines[iter].clear();
+            }
             logLines[iter] += prefix;
             vlog(" ", std::forward<Args>(args)...);
             logLines[iter] += "\n";
@@ -146,40 +179,6 @@ class Log {
         }
 
         /**
-         * @brief Logs a message. Overload for convenience, same behavior as log()
-         */
-        template<Logable... Args>
-        void operator() (Args&&... args) {
-            log(std::forward<Args>(args)...);
-        }
-
-        /**
-         * @brief Log an error
-         * @details Prints the message with a red "Error: " prefix.
-         *  The message will look like this:
-         *  <time>: <prefix>: Error: <message>
-         *  where time will be white, prefix in prefixColor, Error in red and message white.
-         * @param args Any number of arguments that satisfy concept Logable
-         */
-        template<Logable... Args>
-        void error(Args&&... args) {
-            clog(RED, "Error", WHITE, std::forward<Args>(args)...);
-        }
-
-        /**
-         * @brief Log a warnign
-         * @details Prints the message with a yellow "Warning: " prefix.
-         *  The message will look like this:
-         *  <time>: <prefix>: Warning: <message>
-         *  where time will be white, prefix in prefixColor, Warning in yellow and message white.
-         * @param args Any number of arguments that satisfy concept Logable
-         */
-        template<Logable... Args>
-        void warning(Args&&... args) {
-            clog(YELLOW, "Warning", WHITE, std::forward<Args>(args)...);
-        }
-
-        /**
          * @brief Log a message in a certain color and with a colored type
          * @details
          *  The message will look like this:
@@ -192,8 +191,13 @@ class Log {
 #ifdef LOG_MULTITHREAD 
             mtx.lock();
 #endif
-            getTime();
-            logLines[iter] = std::string(time);
+            if (showTime) {
+                getTime();
+                logLines[iter] = std::string(time);
+            }
+            else {
+                logLines[iter].clear();
+            }
             logLines[iter] += prefix + type + ": ";
             vlog(" ", std::forward<Args>(args)...);
             logLines[iter] += "\n";
@@ -230,8 +234,13 @@ class Log {
 #endif
             argsBegin.clear();
             argsBegin.emplace_back(0);
-            getTime();
-            logLines[iter] = std::string(time);
+            if (showTime) {
+                getTime();
+                logLines[iter] = std::string(time);
+            }
+            else {
+                logLines.clear();
+            }
             argsBegin.emplace_back(logLines[iter].size());
             logLines[iter] += prefix;
 
@@ -265,6 +274,44 @@ class Log {
 #endif
         };
 
+
+    // 
+    // CONVENCIENCE
+    //
+        /**
+         * @brief Logs a message. Overload for convenience, same behavior as log()
+         */
+        template<Logable... Args>
+        void operator() (Args&&... args) {
+            log(std::forward<Args>(args)...);
+        }
+
+        /**
+         * @brief Log an error
+         * @details Prints the message with a red "Error: " prefix.
+         *  The message will look like this:
+         *  <time>: <prefix>: Error: <message>
+         *  where time will be white, prefix in prefixColor, Error in red and message white.
+         * @param args Any number of arguments that satisfy concept Logable
+         */
+        template<Logable... Args>
+        void error(Args&&... args) {
+            clog(RED, "Error", WHITE, std::forward<Args>(args)...);
+        }
+
+        /**
+         * @brief Log a warnign
+         * @details Prints the message with a yellow "Warning: " prefix.
+         *  The message will look like this:
+         *  <time>: <prefix>: Warning: <message>
+         *  where time will be white, prefix in prefixColor, Warning in yellow and message white.
+         * @param args Any number of arguments that satisfy concept Logable
+         */
+        template<Logable... Args>
+        void warning(Args&&... args) {
+            clog(YELLOW, "Warning", WHITE, std::forward<Args>(args)...);
+        }
+
     private:
         // vlog for variadic log
         /// Log anything that can be appendend to std::string
@@ -293,23 +340,35 @@ class Log {
         std::vector<std::string::size_type> argsBegin;
         /// The current position in logLines
         size_t iter = 0;
+        /**
+         * @name Writing to file
+         */
+        /// @{
         /// When iter reaches writeToFileAfterLines, write log to file
         unsigned int writeToFileAfterLines;
         /// Absolute path to the logfile
         std::string logFile;
-        bool showLog;
         bool storeLog;
         void writeLog();
+        /// @}
 
+        bool showLog;
         Color prefixColor;
         std::string prefix;
         std::string::size_type prefixLength;
-        Color timeColor;
 
+        /**
+         * @name Time
+         */
+        /// @{
+        bool showTime;
+        Color timeColor;
         /// Stores the current time in yyyy-mm-dd hh:mm:ss format
         char time[LOG_TIMESTAMP_CHAR_COUNT];
         /// Store the current time in yyyy-mm-dd hh:mm:ss format in time member
         void getTime();
+        /// @}
+
 #ifdef LOG_MULTITHREAD 
         /// Lock for std::cout
         static std::mutex mtx;
