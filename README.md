@@ -48,6 +48,9 @@ Replace `firefox` with your web browser
 
 
 ## Changelog
+### 2022-10-14
+- Added create info struct constructor to log
+- Timestamp can be disabled in log
 ### 2022-09-26
 - Added SettingsManager
 - Renamed getXXX to getXXXOr
