@@ -49,7 +49,7 @@ install: $(LIB) $(HEADER_INST)
 	install -D -m 755 ../gen_enum_str.py $(DESTDIR)/bin/gen-enum-str
 
 uninstall:
-	{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
+	@{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
 	-rm $(DESTDIR)/lib/$(subst ../,,$(LIB))
 	-rm $(DESTDIR)/bin/gz-enum-str
 	-rm -r $(DESTDIR)/include/gz-util/
