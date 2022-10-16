@@ -13,9 +13,9 @@
 #endif
 
 namespace gz {
-
     /// Reserve a string size for each string in logArray. Set to 0 if you do not want to reserve memory for strings.
     constexpr unsigned int LOG_RESERVE_STRING_SIZE = 100;
+    constexpr unsigned int ARG_COUNT_RESERVE_COUNT = 6;
 
     constexpr unsigned int LOG_TIMESTAMP_CHAR_COUNT = 22;
     constexpr unsigned int LOG_POSTPREFIX_CHAR_COUNT = 2;
@@ -153,60 +153,28 @@ class Log {
 #ifdef LOG_MULTITHREAD 
             mtx.lock();
 #endif
+            argsBegin.clear();
             if (showTime) {
                 getTime();
                 logLines[iter] = time;
             }
             else {
-                logLines[iter].clear();
+                logLines.clear();
             }
+            argsBegin.emplace_back(logLines[iter].size());
             logLines[iter] += prefix;
+
             vlog(" ", std::forward<Args>(args)...);
             logLines[iter] += "\n";
+            argsBegin.emplace_back(logLines[iter].size());
 
             if (showLog) {
-                std::cout << COLORS[timeColor] << std::string_view(logLines[iter].c_str(), LOG_TIMESTAMP_CHAR_COUNT - 1) <<
-                    COLORS[prefixColor] << prefix << COLORS[RESET] << 
-                    std::string_view(logLines[iter].begin() + prefixLength, logLines[iter].end());
-            }
-            if (++iter >= writeToFileAfterLines) {
-                iter = 0;
-                writeLog();
-            }
-#ifdef LOG_MULTITHREAD 
-            mtx.unlock();
-#endif
-        }
-
-        /**
-         * @brief Log a message in a certain color and with a colored type
-         * @details
-         *  The message will look like this:
-         *  <time>: <prefix>: <type>: <message>
-         *  where time will be white, prefix in prefixColor, type in typeColor and message in messageColor
-         * @param args Any number of arguments that satisfy concept Logable
-         */
-        template<Logable... Args>
-        void clog(Color typeColor, std::string&& type, Color messageColor, Args&&... args) {
-#ifdef LOG_MULTITHREAD 
-            mtx.lock();
-#endif
-            if (showTime) {
-                getTime();
-                logLines[iter] = std::string(time);
-            }
-            else {
-                logLines[iter].clear();
-            }
-            logLines[iter] += prefix + type + ": ";
-            vlog(" ", std::forward<Args>(args)...);
-            logLines[iter] += "\n";
-
-            if (showLog) {
-                std::cout << COLORS[timeColor] << std::string_view(logLines[iter].c_str(), LOG_TIMESTAMP_CHAR_COUNT - 1) <<
-                    COLORS[prefixColor] << prefix << COLORS[typeColor] << 
-                    std::string_view(logLines[iter].begin() + prefixLength + LOG_POSTPREFIX_CHAR_COUNT, logLines[iter].begin() + prefixLength + type.size() + 2 * LOG_POSTPREFIX_CHAR_COUNT) <<
-                    COLORS[messageColor] << std::string_view(logLines[iter].begin() + prefixLength + type.size() + 2 * LOG_POSTPREFIX_CHAR_COUNT, logLines[iter].end()) << COLORS[RESET];
+                // time
+                std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
+                // prefix
+                    << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET]
+                // message
+                    << std::string_view(logLines[iter].begin() + argsBegin[1], logLines[iter].end());
             }
             if (++iter >= writeToFileAfterLines) {
                 iter = 0;
@@ -221,7 +189,7 @@ class Log {
          * @brief Log a message in a certain color
          * @details
          *  The message will look like this:
-         *  <time>: <prefix>: <message0>, <message1>...
+         *  <time>: <prefix>: <message0> <message1>...
          *  where time will be white, prefix in prefixColor, and messageI in colors[I]. 
          *  If there are less colors than message arguments, the last color is used for all remaining messages.
          * @param args Any number of arguments that satisfy concept Logable
@@ -233,7 +201,6 @@ class Log {
             mtx.lock();
 #endif
             argsBegin.clear();
-            argsBegin.emplace_back(0);
             if (showTime) {
                 getTime();
                 logLines[iter] = std::string(time);
@@ -247,23 +214,19 @@ class Log {
             vlog(" ", std::forward<Args>(args)...);
             logLines[iter] += "\n";
             argsBegin.emplace_back(logLines[iter].size());
-            /* std::cout << "Log has Views:\n"; */
-            /* for (auto& view : argsBegin) { */
-            /*     std::cout << "\t" << view << "\n"; */
-            /* } */
 
             if (showLog) {
-                // log prefix
-                std::cout << COLORS[timeColor] << 
-                    std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[prefixColor] <<
-                    std::string_view(logLines[iter].begin() + argsBegin[1], logLines[iter].begin() + argsBegin[2]) << COLORS[RESET]; 
-                // max index where i can be used for colors and i+3 can be used for currentViews
-                size_t maxI = std::min(colors.size(), argsBegin.size() - 3);
+                // time
+                std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
+                // prefix
+                    << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET];
+                // max index where i can be used for colors and i+2 can be used for currentViews
+                size_t maxI = std::min(colors.size(), argsBegin.size() - 2);
                 for (size_t i = 0; i < maxI; i++) {
-                    std::cout << COLORS[colors[i]] << std::string_view(logLines[iter].begin() + argsBegin[i+2], logLines[iter].begin() + argsBegin[i+3]);
+                    std::cout << COLORS[colors[i]] << std::string_view(logLines[iter].begin() + argsBegin[i+1], logLines[iter].begin() + argsBegin[i+2]);
                 }
-                // log the rest, maxI is now <= argsBegin.size() - 3
-                std::cout << std::string_view(logLines[iter].begin() + argsBegin[maxI+2], logLines[iter].end()) << COLORS[RESET];
+                // log the rest, maxI is now <= argsBegin.size() - 2
+                std::cout << std::string_view(logLines[iter].begin() + argsBegin[maxI+1], logLines[iter].end()) << COLORS[RESET];
             }
             if (++iter >= writeToFileAfterLines) {
                 iter = 0;
@@ -296,7 +259,7 @@ class Log {
          */
         template<Logable... Args>
         void error(Args&&... args) {
-            clog(RED, "Error", WHITE, std::forward<Args>(args)...);
+            clog({RED, WHITE}, "Error:", std::forward<Args>(args)...);
         }
 
         /**
@@ -309,7 +272,7 @@ class Log {
          */
         template<Logable... Args>
         void warning(Args&&... args) {
-            clog(YELLOW, "Warning", WHITE, std::forward<Args>(args)...);
+            clog({YELLOW, WHITE}, "Warning:", std::forward<Args>(args)...);
         }
 
     private:
@@ -318,7 +281,7 @@ class Log {
         template<util::Stringy T, Logable... Args>
         void vlog(const char* appendChars, T&& t,  Args&&... args) {
             argsBegin.emplace_back(logLines[iter].size());
-            logLines[iter] += t;
+            logLines[iter] += std::string(t);
             logLines[iter] += appendChars;
             vlog(" ", std::forward< Args>(args)...);
         }
@@ -334,6 +297,7 @@ class Log {
         void vlog(const char* appendChars) {};
 
     private:
+        void init();
         /// Where the lines are stored
         std::vector<std::string> logLines;
         /// Used during log: string views into the single substrings in logLines[currentLine]
@@ -346,6 +310,7 @@ class Log {
         /// @{
         /// When iter reaches writeToFileAfterLines, write log to file
         unsigned int writeToFileAfterLines;
+        bool clearLogfileOnRestart;
         /// Absolute path to the logfile
         std::string logFile;
         bool storeLog;
@@ -355,7 +320,6 @@ class Log {
         bool showLog;
         Color prefixColor;
         std::string prefix;
-        std::string::size_type prefixLength;
 
         /**
          * @name Time

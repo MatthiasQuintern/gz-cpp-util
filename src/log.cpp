@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ctime>
+#include <ios>
 
 namespace gz {
     namespace fs = std::filesystem;
@@ -52,55 +53,32 @@ namespace gz {
     std::mutex Log::mtx;
 #endif
     Log::Log(std::string logfile, bool showLog, bool storeLog, std::string&& prefix_, Color prefixColor, bool showTime, Color timeColor, bool clearLogfileOnRestart, unsigned int writeAfterLines)
-        : iter(0), writeToFileAfterLines(writeAfterLines), storeLog(storeLog), showLog(showLog), prefixColor(prefixColor), prefix(prefix_ + ": "), prefixLength(prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1), timeColor(timeColor) {
-        // get absolute path to the logfile
-        fs::path logpath(logfile);
-        if (!logpath.is_absolute()) {
-            logpath = fs::current_path() / logpath;
-        }
-        // create directory of logfile
-        if (!fs::is_directory(logpath.parent_path())) {
-            fs::create_directory(logpath.parent_path());
-        }
-        logFile = logpath.string();
-
-        // if clearLogfileOnRestart, open the file to clear it
-        if (clearLogfileOnRestart and fs::is_regular_file(logfile)) {
-            std::ofstream file(logFile, std::ofstream::trunc);
-            file.close();
-        }
-
-        if (writeToFileAfterLines == 0) { writeToFileAfterLines = 1; }
-        logLines.resize(writeToFileAfterLines);
-        // reserve memory for strings
-        if (LOG_RESERVE_STRING_SIZE > 0) {
-            for (size_t i = 0; i < logLines.size(); i++) {
-                logLines[i].reserve(LOG_RESERVE_STRING_SIZE);
-            }
-        }
-
-        if (showTime) {
-            prefixLength = prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1;
-        }
-        else {
-            prefixLength = prefix.size();
-        }
-
-        /* log("Initialising log with settings: logFile: " + logFile + */ 
-        /*         ", showLog - " + boolToString(showLog) + ", storeLog - " + boolToString(storeLog)); */
+        : iter(0), 
+            writeToFileAfterLines(writeAfterLines), clearLogfileOnRestart(clearLogfileOnRestart), 
+            logFile(logfile), storeLog(storeLog), 
+            showLog(showLog), 
+            prefixColor(prefixColor), prefix(prefix_ + ": "), 
+            showTime(showTime), timeColor(timeColor)
+    {
+        init();
     }
 
 
     Log::Log(LogCreateInfo&& ci)
         : iter(0), 
-            writeToFileAfterLines(ci.writeAfterLines), storeLog(ci.storeLog), 
+            writeToFileAfterLines(ci.writeAfterLines), clearLogfileOnRestart(ci.clearLogfileOnRestart), 
+            logFile(ci.logfile), storeLog(ci.storeLog),
             showLog(ci.showLog), 
             prefixColor(ci.prefixColor), 
-            prefix(std::move(ci.prefix) + ": "), 
+            prefix(ci.prefix + ": "), 
             showTime(ci.showTime), timeColor(ci.timeColor)
     {
+        init();
+    }
+
+    void Log::init() {
         // get absolute path to the logfile
-        fs::path logpath(ci.logfile);
+        fs::path logpath(std::move(logFile));
         if (!logpath.is_absolute()) {
             logpath = fs::current_path() / logpath;
         }
@@ -111,7 +89,7 @@ namespace gz {
         logFile = logpath.string();
 
         // if clearLogfileOnRestart, open the file to clear it
-        if (ci.clearLogfileOnRestart and fs::is_regular_file(logpath)) {
+        if (clearLogfileOnRestart and fs::is_regular_file(logpath)) {
             std::ofstream file(logFile, std::ofstream::trunc);
             file.close();
         }
@@ -125,15 +103,8 @@ namespace gz {
             }
         }
 
-        if (showTime) {
-            prefixLength = prefix.size() + LOG_TIMESTAMP_CHAR_COUNT - 1;
-        }
-        else {
-            prefixLength = prefix.size();
-        }
-
-        /* log("Initialising log with settings: logFile: " + logFile + */ 
-        /*         ", showLog - " + boolToString(showLog) + ", storeLog - " + boolToString(storeLog)); */
+        // reserve memory for argsBegin
+        argsBegin.reserve(ARG_COUNT_RESERVE_COUNT);
     }
 
 
@@ -152,7 +123,7 @@ namespace gz {
 
     
     void Log::writeLog() {
-        std::ofstream file(logFile);
+        std::ofstream file(logFile, std::ios_base::app);
         if (file.is_open()) {
             for (std::string message : logLines) {
                 file << message;
