@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#define LOG_MULTITHREAD
 
 #include "util/string_conversion.hpp"
 
@@ -10,6 +9,19 @@
 
 #ifdef LOG_MULTITHREAD 
 #include <mutex>
+#endif
+
+// the higher level needs to include the lower ones
+#ifdef LOG_LEVEL_3
+#define LOG_LEVEL_2
+#endif
+
+#ifdef LOG_LEVEL_2
+#define LOG_LEVEL_1
+#endif
+
+#ifdef LOG_LEVEL_1
+#define LOG_LEVEL_0
 #endif
 
 namespace gz {
@@ -101,18 +113,29 @@ namespace gz {
  *   Alternatively, or if the type is not a class overload <code> std::string toString(const T& t) </code> in global or gz namespace.
  *
  *  @subsection log_threads Thread safety
- *   Log can use a static mutex for thread safety. To use this feature, you have to #define LOG_MULTITHREAD at the top of log.hpp.
+ *   Log can use a static mutex for thread safety. To use this feature, you have to `#define LOG_MULTITHREAD` @b before including `log.hpp`.
  *   Note that log uses the default std::cout buffer, so you should make sure it is not being used while logging something.
  *
  *  @subsection log_logfile Logfile
  *   The logs can be written to a logfile, which can be specified in the constructor.
  *   The logs are not continuously written to the logfile, since file operations are expensive. 
  *   Instead, the log is stored in memory and written to the file if a certain number of lines is reached, which you can specify in the constructor.
- *   If you want the the log to be continuously written to the file, set writeAfterLines=1.
+ *   If you want the log to be continuously written to the file, set `writeAfterLines` to 1.
  *
+ *  @subsection log_levels Loglevels
+ *   There are 4 different log levels (0-3), where the higher ones include the lower ones.
+ *   To set the log level to `X`, where `X` is one of {0, 1, 2, 3}, 
+ *   define `#define LOG_LEVEL_X` @b before including `log.hpp`.
+ *   You can then use @ref log0 "logX" or @ref clog0 "clogX".
+ *
+ *   If @ref log0 "logX" function log level is higher than the set log level, 
+ *   the function call will be a noop and thus optimized away be the compiler.
+ *
+ *   @note operator(), log, clog, warning and error are always 'on', regardless of which (if any) log level is defined.
+ *   
  * @todo Exception policies
- * @todo Remove vec2 or add vec3, vec4
- *
+ * @todo Use own ostream and not std::cout
+ * @todo Make colors cross platform
  */
 class Log {
     public:
@@ -140,6 +163,10 @@ class Log {
     // ACTUAL LOGGING
     //
         /**
+         * @name Logging
+         */
+        /// @{
+        /**
          * @brief Logs a message
          * @details Depending on the settings of the log instance, the message will be printed to stdout and/or written to the logfile.
          *  The current date and time is placed before the message.
@@ -149,41 +176,7 @@ class Log {
          * @param args Any number of arguments that satisfy concept Logable
          */
         template<Logable... Args>
-        void log(Args&&... args) {
-#ifdef LOG_MULTITHREAD 
-            mtx.lock();
-#endif
-            argsBegin.clear();
-            if (showTime) {
-                getTime();
-                logLines[iter] = time;
-            }
-            else {
-                logLines.clear();
-            }
-            argsBegin.emplace_back(logLines[iter].size());
-            logLines[iter] += prefix;
-
-            vlog(" ", std::forward<Args>(args)...);
-            logLines[iter] += "\n";
-            argsBegin.emplace_back(logLines[iter].size());
-
-            if (showLog) {
-                // time
-                std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
-                // prefix
-                    << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET]
-                // message
-                    << std::string_view(logLines[iter].begin() + argsBegin[1], logLines[iter].end());
-            }
-            if (++iter >= writeToFileAfterLines) {
-                iter = 0;
-                writeLog();
-            }
-#ifdef LOG_MULTITHREAD 
-            mtx.unlock();
-#endif
-        }
+        void log(Args&&... args);
 
         /**
          * @brief Log a message in a certain color
@@ -196,46 +189,7 @@ class Log {
          * @param colors Vector of colors, where the nth color refers to the nth arg
          */
         template<Logable... Args>
-        void clog(const std::vector<Color>& colors, Args&&... args) {
-#ifdef LOG_MULTITHREAD 
-            mtx.lock();
-#endif
-            argsBegin.clear();
-            if (showTime) {
-                getTime();
-                logLines[iter] = std::string(time);
-            }
-            else {
-                logLines.clear();
-            }
-            argsBegin.emplace_back(logLines[iter].size());
-            logLines[iter] += prefix;
-
-            vlog(" ", std::forward<Args>(args)...);
-            logLines[iter] += "\n";
-            argsBegin.emplace_back(logLines[iter].size());
-
-            if (showLog) {
-                // time
-                std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
-                // prefix
-                    << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET];
-                // max index where i can be used for colors and i+2 can be used for currentViews
-                size_t maxI = std::min(colors.size(), argsBegin.size() - 2);
-                for (size_t i = 0; i < maxI; i++) {
-                    std::cout << COLORS[colors[i]] << std::string_view(logLines[iter].begin() + argsBegin[i+1], logLines[iter].begin() + argsBegin[i+2]);
-                }
-                // log the rest, maxI is now <= argsBegin.size() - 2
-                std::cout << std::string_view(logLines[iter].begin() + argsBegin[maxI+1], logLines[iter].end()) << COLORS[RESET];
-            }
-            if (++iter >= writeToFileAfterLines) {
-                iter = 0;
-                writeLog();
-            }
-#ifdef LOG_MULTITHREAD 
-            mtx.unlock();
-#endif
-        };
+        void clog(const std::vector<Color>& colors, Args&&... args);
 
 
     // 
@@ -263,7 +217,7 @@ class Log {
         }
 
         /**
-         * @brief Log a warnign
+         * @brief Log a warning
          * @details Prints the message with a yellow "Warning: " prefix.
          *  The message will look like this:
          *  <time>: <prefix>: Warning: <message>
@@ -274,26 +228,65 @@ class Log {
         void warning(Args&&... args) {
             clog({YELLOW, WHITE}, "Warning:", std::forward<Args>(args)...);
         }
+        /// @}
+        /**
+         * @name Logging at different levels
+         */
+        /// @{
+        /**
+         * @brief Enabled with LOG_LEVEL_0 or higher
+         */
+        template<Logable... Args>
+        inline void log0(Args&&... args);
+        /**
+         * @brief Enabled with LOG_LEVEL_1 or higher
+         */
+        template<Logable... Args>
+        inline void log1(Args&&... args);
+        /**
+         * @brief Enabled with LOG_LEVEL_2 or higher
+         */
+        template<Logable... Args>
+        inline void log2(Args&&... args);
+        /**
+         * @brief Enabled with LOG_LEVEL_3 or higher
+         */
+        template<Logable... Args>
+        inline void log3(Args&&... args);
+
+        /**
+         * @brief Enabled with LOG_LEVEL_0 or higher
+         */
+        template<Logable... Args>
+        inline void clog0(const std::vector<Color>& colors, Args&&... args);
+        /**
+         * @brief Enabled with LOG_LEVEL_1 or higher
+         */
+        template<Logable... Args>
+        inline void clog1(const std::vector<Color>& colors, Args&&... args);
+        /**
+         * @brief Enabled with LOG_LEVEL_2 or higher
+         */
+        template<Logable... Args>
+        inline void clog2(const std::vector<Color>& colors, Args&&... args);
+        /**
+         * @brief Enabled with LOG_LEVEL_3 or higher
+         */
+        template<Logable... Args>
+        inline void clog3(const std::vector<Color>& colors, Args&&... args);
+        /// @}
 
     private:
         // vlog for variadic log
         /// Log anything that can be appendend to std::string
         template<util::Stringy T, Logable... Args>
-        void vlog(const char* appendChars, T&& t,  Args&&... args) {
-            argsBegin.emplace_back(logLines[iter].size());
-            logLines[iter] += std::string(t);
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
+        void vlog(const char* appendChars, T&& t,  Args&&... args);
+
         /// Log anything where toString exists
         template<ConvertibleToString T, Logable... Args>
-        void vlog(const char* appendChars, T&& t,  Args&&... args) requires (!util::Stringy<T>) {
-            argsBegin.emplace_back(logLines[iter].size());
-            logLines[iter] += toString(t);
-            logLines[iter] += appendChars;
-            vlog(" ", std::forward< Args>(args)...);
-        }
+        void vlog(const char* appendChars, T&& t,  Args&&... args) requires (!util::Stringy<T>);
 
+        /// End for the recursion
         void vlog(const char* appendChars) {};
 
     private:
@@ -338,6 +331,167 @@ class Log {
         static std::mutex mtx;
 #endif
 }; // class Log
+
+
+//
+// DEFINITIONS
+//
+    template<Logable... Args>
+    void Log::log(Args&&... args) {
+#ifdef LOG_MULTITHREAD 
+        mtx.lock();
+#endif
+        argsBegin.clear();
+        if (showTime) {
+            getTime();
+            logLines[iter] = time;
+        }
+        else {
+            logLines.clear();
+        }
+        argsBegin.emplace_back(logLines[iter].size());
+        logLines[iter] += prefix;
+
+        vlog(" ", std::forward<Args>(args)...);
+        logLines[iter] += "\n";
+        argsBegin.emplace_back(logLines[iter].size());
+
+        if (showLog) {
+            // time
+            std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
+            // prefix
+                << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET]
+            // message
+                << std::string_view(logLines[iter].begin() + argsBegin[1], logLines[iter].end());
+        }
+        if (++iter >= writeToFileAfterLines) {
+            iter = 0;
+            writeLog();
+        }
+#ifdef LOG_MULTITHREAD 
+        mtx.unlock();
+#endif
+    }
+
+
+    template<Logable... Args>
+    void Log::clog(const std::vector<Color>& colors, Args&&... args) {
+#ifdef LOG_MULTITHREAD 
+        mtx.lock();
+#endif
+        argsBegin.clear();
+        if (showTime) {
+            getTime();
+            logLines[iter] = std::string(time);
+        }
+        else {
+            logLines.clear();
+        }
+        argsBegin.emplace_back(logLines[iter].size());
+        logLines[iter] += prefix;
+
+        vlog(" ", std::forward<Args>(args)...);
+        logLines[iter] += "\n";
+        argsBegin.emplace_back(logLines[iter].size());
+
+        if (showLog) {
+            // time
+            std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
+            // prefix
+                << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET];
+            // max index where i can be used for colors and i+2 can be used for currentViews
+            size_t maxI = std::min(colors.size(), argsBegin.size() - 2);
+            for (size_t i = 0; i < maxI; i++) {
+                std::cout << COLORS[colors[i]] << std::string_view(logLines[iter].begin() + argsBegin[i+1], logLines[iter].begin() + argsBegin[i+2]);
+            }
+            // log the rest, maxI is now <= argsBegin.size() - 2
+            std::cout << std::string_view(logLines[iter].begin() + argsBegin[maxI+1], logLines[iter].end()) << COLORS[RESET];
+        }
+        if (++iter >= writeToFileAfterLines) {
+            iter = 0;
+            writeLog();
+        }
+#ifdef LOG_MULTITHREAD 
+        mtx.unlock();
+#endif
+    };
+
+
+    template<util::Stringy T, Logable... Args>
+    void Log::vlog(const char* appendChars, T&& t,  Args&&... args) {
+        argsBegin.emplace_back(logLines[iter].size());
+        logLines[iter] += std::string(t);
+        logLines[iter] += appendChars;
+        vlog(" ", std::forward<Args>(args)...);
+    }
+    /// Log anything where toString exists
+    template<ConvertibleToString T, Logable... Args>
+    void Log::vlog(const char* appendChars, T&& t,  Args&&... args) requires (!util::Stringy<T>) {
+        argsBegin.emplace_back(logLines[iter].size());
+        logLines[iter] += toString(t);
+        logLines[iter] += appendChars;
+        vlog(" ", std::forward<Args>(args)...);
+    }
+
+
+    template<Logable... Args>
+    inline void Log::log0(Args&&... args) {
+#ifdef LOG_LEVEL_0
+        this->log(std::forward<Args>(args)...);
+#endif
+    }
+
+    template<Logable... Args>
+    inline void Log::log1(Args&&... args) {
+#ifdef LOG_LEVEL_1
+        this->log(std::forward<Args>(args)...);
+#endif
+    }
+
+    template<Logable... Args>
+    inline void Log::log2(Args&&... args) {
+#ifdef LOG_LEVEL_2
+        this->log(std::forward<Args>(args)...);
+#endif
+    }
+
+    template<Logable... Args>
+    inline void Log::log3(Args&&... args) {
+#ifdef LOG_LEVEL_3
+        this->log(std::forward<Args>(args)...);
+#endif
+    }
+
+
+    template<Logable... Args>
+    inline void Log::clog0(const std::vector<Color>& colors, Args&&... args) {
+#ifdef LOG_LEVEL_0
+        this->clog(colors, std::forward<Args>(args)...);
+#endif
+    }
+
+    template<Logable... Args>
+    inline void Log::clog1(const std::vector<Color>& colors, Args&&... args) {
+#ifdef LOG_LEVEL_1
+        this->clog(colors, std::forward<Args>(args)...);
+#endif
+    }
+
+    template<Logable... Args>
+    inline void Log::clog2(const std::vector<Color>& colors, Args&&... args) {
+#ifdef LOG_LEVEL_2
+        this->clog(colors, std::forward<Args>(args)...);
+#endif
+    }
+
+    template<Logable... Args>
+    inline void Log::clog3(const std::vector<Color>& colors, Args&&... args) {
+#ifdef LOG_LEVEL_3
+        this->clog(colors, std::forward<Args>(args)...);
+#endif
+    }
+
+
 } // namespace gz
 
 /**

@@ -48,10 +48,12 @@ Replace `firefox` with your web browser
 
 
 ## Changelog
-### 2022-10-14
-- Added create info struct constructor to log
-- Timestamp can be disabled in log
-### 2022-09-26
+### 2022-10-19 [1.3.1] [1.3.2]
+- Changes to logger (log.hpp):
+   - Added create info struct constructor
+   - Timestamp can be disabled
+   - Added different log levels that can be turned off/on at compile time
+### 2022-09-26 [1.3]
 - Added SettingsManager
 - Renamed getXXX to getXXXOr
 - Added more type conversion utility
@@ -60,10 +62,10 @@ Replace `firefox` with your web browser
 - Logger now uses to_string
 - Restructured files
 - Added more documentation
-### 2022-09-17
+### 2022-09-17 [1.2]
 - Moved math part to its own repository/library [here](https://github.com/MatthiasQuintern/gzm)
-### 2022-09-10
+### 2022-09-10 [1.1]
 - Added matrices to math lib
 - Improved logger
-### 2022-09-05
+### 2022-09-05 [1.0]
 - initial version
