@@ -3,6 +3,14 @@
 #include "string_concepts.hpp"
 
 #include <string>
+#include <bitset>
+
+#ifdef FORMAT 
+#include <format>
+#else
+#include <sstream>
+#include <iomanip>
+#endif
 
 namespace gz {
 
@@ -23,7 +31,7 @@ namespace gz {
 
 /**
  * @name Convert to type or return fallback
- * @todo Use string_views wothout constructing a std::string
+ * @todo Use string_views without constructing a std::string
  * @{
  */
     int getIntOr(const std::string& s, int fallback=0) noexcept;
@@ -232,10 +240,10 @@ namespace gz {
 /**
  * @name Construct a type from a string
  * @note 
- *  The fromString()functions (except for the bool one) simply return std::stoXX. These can throw std::invalid_argument and std::out_of_range.
+ *  The fromString() functions (except for the bool one) simply return std::stoXX. These can throw std::invalid_argument and std::out_of_range.
  *  See https://en.cppreference.com/w/cpp/string/basic_string/stol
  */
-
+    /// @{
     /**
      * @brief Declaration of fromString, but only for the types for which it is implemented
      */
@@ -295,9 +303,7 @@ namespace gz {
     inline T fromString(const std::string& s) {
         return ::fromString<T>(s);
     }
-/**
-* @}
-*/
+    /// @}
 
 //
 // CONCEPTS
@@ -326,6 +332,103 @@ namespace gz {
      */  
     template<typename T>
     concept StringConvertible = ConvertibleToString<T> and ConstructibleFromString<T>;
+    
+
+
+
+//
+// HEX/OCT
+//
+/**
+ * @name Converting an integer to/from a hex/oct/bin string
+ * @todo Move to std::format, when P0645R10 is implemented in gcc libstd
+ * @note 
+ *  The fromHexString() and fromOctString() functions use `std::hex`, while fromBinString() uses `std::bitset`. Both can throw `std::invalid_argument` and the latter can also throw `std::out_of_range`.
+ *  See https://en.cppreference.com/w/cpp/utility/bitset/bitset and https://en.cppreference.com/w/cpp/io/manip/hex
+ */
+    /// @{
+    /**
+     * @brief Convert an integer to hexdecimal string (prefixed with 0x)
+     * @param digits 
+     *  Minimum number of digits. Defaults to the amount of digits required to represent the largest possible number of type T.
+     *  If digits is smaller than the needed amount to represent t, the needed amount is used.
+     */
+    template<std::integral T>
+    std::string toHexString(const T& t, char digits=sizeof(T)*2) {
+#ifdef FORMAT
+        return std::format("{:#0" + std::to_string(digits) + "x}", t);
+#endif
+        std::stringstream ss;
+        ss << "0x" << std::setfill('0') << std::setw(digits) << std::hex << t;
+        return std::string(ss.str());
+    }
+
+    /**
+     * @brief Convert a hexadecimal string (may be prefixed with 0x) to integer
+     */
+    template<std::integral T>
+    T fromHexString(const std::string& s) {
+        T t;
+        std::stringstream ss;
+        ss << std::hex << s;
+        ss >> t;
+        return t;
+    }
+
+    /**
+     * @brief Convert an integer to octal string (prefixed with 0)
+     * @param digits 
+     *  Minimum number of digits. Defaults to the amount of digits required to represent the largest possible number of type T.
+     *  If digits is smaller than the needed amount to represent t, the needed amount is used.
+     */
+    template<std::integral T>
+    std::string toOctString(const T& t, char digits=sizeof(T)*4) {
+#ifdef FORMAT
+        // TODO test when possible
+        return std::format("{:#0" + std::to_string(digits) + "o}", t);
+#endif
+        std::stringstream ss;
+        ss << "0" << std::setfill('0') << std::setw(digits) << std::oct << t;
+        return std::string(ss.str());
+    }
+
+    /**
+     * @brief Convert an octal string (may be prefixed with 0) to integer
+     */
+    template<std::integral T>
+    T fromOctString(const std::string& s) {
+        T t;
+        std::stringstream ss;
+        ss << std::oct << s;
+        ss >> t;
+        return t;
+    }
+
+    /**
+     * @brief Convert an integer to binary string (prefixed with 0b)
+     */
+    template<std::integral T>
+    std::string toBinString(const T& t) {
+#ifdef FORMAT
+        // TODO test when possible
+        return std::format("{:#0" + std::to_string(digits) + "b}", t);
+#endif
+        return std::string("0b") + std::bitset<sizeof(T)*8>(t).to_string();
+    }
+
+    /**
+     * @brief Convert binary string (may be prefixed with 0b) to integer
+     */
+    template<std::integral T>
+    T fromBinString(const std::string& s) {
+        if (s.starts_with("0b")) {
+            return static_cast<T>(std::bitset<sizeof(T)*8>(s, 2).to_ullong());
+        }
+        else {
+            return static_cast<T>(std::bitset<sizeof(T)*8>(s).to_ullong());
+        }
+    }
+    /// @}
 
 } // namespace gz
 
@@ -339,6 +442,7 @@ namespace gz {
  * @page string_conversion String conversion
  * @section sc_about About
  *  This library provides utility for string conversion, from and to std::string.
+ *  The string conversion functions are declared in string_conversion.hpp and can be imported with `#include <gz-util/util/string_conversion.hpp>`.
  *
  *  There also three important concepts, ConvertibleToString, ConstructibleFromString and @ref StringConvertible which are
  *  used in the @ref Log "logger" and the @ref SettingsManager "settings manager" to log and store types.
@@ -374,9 +478,8 @@ namespace gz {
  *        return s;
  *    }
  *   @endcode
- *   To satisfy the concept, this overload has of course to visible by the compiler,
- *   so you have to at least declare it in a header file.
- *    
+ *   To satisfy the concept, this overload must of course be visible to the compiler,
+ *   so you have to declare it before including string_conversion.hpp.
 
  *  @subsection sc_fromString_ov Overload for fromString
  *   Writing an overload for fromString needs a little bit more boiler plate.
@@ -410,7 +513,18 @@ namespace gz {
  *   If it has multiple lines, it will not load it correctly when loading from a file.
  *
  *  @todo Implement fromString for vectors that hold ConstructibleFromString types
- *  @todo Make fromString throw InvalidArgument, write docs
  *  @todo Make macro for all types/concepts where someone would want to implement fromString and toString explicitly, eg vectors
+ *
+ * @section sc_int_types Converting integers to/from strings with different base
+ *  The functions toHexString(), toOctString() and toBinString() can be used to get a
+ *  string of an integers representation in 16 / 8 / 2 basis.
+ *
+ *  The functions fromHexString<T>(), fromOctString<T>() and fromBinString<T>() can be used to get an integer 
+ *  from a string representation of an integer in 16 / 8 / 2 basis.
+ *  These function can throw std::invalid_argument and std::out_of_range.
+ *
+ *  @note toHexString() and toOctString() do not work well with `(unsigned) char` (`(u)int8_t`).
+ *
+ *  
  */
 } // namespace gz
