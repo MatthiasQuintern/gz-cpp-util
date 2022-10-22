@@ -48,17 +48,20 @@ Replace `firefox` with your web browser
 
 
 ## Changelog
+### 2022-10-23 [1.3.3]
+- Added integer to string in hex/oct/bin representation conversion
+- Added integer from string in hex/oct/bin representation conversion
 ### 2022-10-19 [1.3.1] [1.3.2]
 - Changes to logger (log.hpp):
    - Added create info struct constructor
-   - Timestamp can be disabled
+   - Timestamp can be disabled and colored
    - Added different log levels that can be turned off/on at compile time
 ### 2022-09-26 [1.3]
 - Added SettingsManager
 - Renamed getXXX to getXXXOr
 - Added more type conversion utility
-    - from_string<T>()
-    - to_string()
+    - fromString<T>()
+    - toString()
 - Logger now uses to_string
 - Restructured files
 - Added more documentation
