@@ -12,16 +12,16 @@
 #endif
 
 // the higher level needs to include the lower ones
-#ifdef LOG_LEVEL_3
-#define LOG_LEVEL_2
-#endif
-
-#ifdef LOG_LEVEL_2
+#ifdef LOG_LEVEL_0
 #define LOG_LEVEL_1
 #endif
 
 #ifdef LOG_LEVEL_1
-#define LOG_LEVEL_0
+#define LOG_LEVEL_2
+#endif
+
+#ifdef LOG_LEVEL_2
+#define LOG_LEVEL_3
 #endif
 
 namespace gz {
@@ -123,15 +123,20 @@ namespace gz {
  *   If you want the log to be continuously written to the file, set `writeAfterLines` to 1.
  *
  *  @subsection log_levels Loglevels
- *   There are 4 different log levels (0-3), where the higher ones include the lower ones.
+ *   There are 4 different log levels (0-3), where the lower ones include the higher ones.
  *   To set the log level to `X`, where `X` is one of {0, 1, 2, 3}, 
  *   define `#define LOG_LEVEL_X` @b before including `log.hpp`.
  *   You can then use @ref log0 "logX" or @ref clog0 "clogX".
  *
- *   If @ref log0 "logX" function log level is higher than the set log level, 
- *   the function call will be a noop and thus optimized away be the compiler.
+ *   If @ref log0 "logX" function log level is lower than the set log level, 
+ *   the function call will be a noop and thus optimized away be the compiler.\n
+ *   You can think of:
+ *   - `LOG_LEVEL_0` as "trace"
+ *   - `LOG_LEVEL_1` as "debug"
+ *   - `LOG_LEVEL_2` as "info"
+ *   - `LOG_LEVEL_3` as "error/important"
  *
- *   @note operator(), log, clog, warning and error are always 'on', regardless of which (if any) log level is defined.
+ *   @note operator()(), log(), clog(), warning() and error() are always 'on', regardless of which (if any) log level is defined.
  *   
  * @todo Exception policies
  * @todo Use own ostream and not std::cout
