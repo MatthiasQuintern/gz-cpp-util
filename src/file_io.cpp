@@ -27,6 +27,8 @@ namespace gz {
         }
         return success;
     }
+    template bool writeKeyValueFile<std::hash<std::string>, std::equal_to<std::string>>(const std::string&, const std::unordered_map<std::string, std::string, std::hash<std::string>, std::equal_to<std::string>>&);
+    template bool writeKeyValueFile<util::string_hash, std::equal_to<>>(const std::string&, const std::unordered_map<std::string, std::string, util::string_hash, std::equal_to<>>&);
 
 
     using pairSS = std::pair<std::string, std::string>;
@@ -72,11 +74,8 @@ namespace gz {
         }
         return attr;
     }
-
     template umapSS readKeyValueFile<umapSS>(const std::string&, bool);
     template mapSS readKeyValueFile<mapSS>(const std::string&, bool);
     template vecSS readKeyValueFile<vecSS>(const std::string&, bool);
 
-    template bool writeKeyValueFile<std::hash<std::string>, std::equal_to<std::string>>(const std::string&, const std::unordered_map<std::string, std::string, std::hash<std::string>, std::equal_to<std::string>>&);
-    template bool writeKeyValueFile<util::string_hash, std::equal_to<>>(const std::string&, const std::unordered_map<std::string, std::string, util::string_hash, std::equal_to<>>&);
 }
