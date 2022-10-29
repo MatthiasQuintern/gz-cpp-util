@@ -1,8 +1,11 @@
 #pragma once
 
+#include<ranges>
 #include <concepts>
 #include <string>
 #include <string_view>
+
+#define GZ_UTIL_STRING_CONCEPTS
 
 namespace gz::util {
 
@@ -59,7 +62,7 @@ namespace gz::util {
     concept _ElementaryTypeOrContainerConvertibleToString = _ElementaryTypeConvertibleToString<T> || _ContainerTypeConvertibleToString<T>;
 
     // VECTOR
-    /// Type having string-convertible x, y members
+    /// Type having string-convertible x, y members and sizeof(T) == 2 * sizeof(x)
     template<typename T>
     concept Vector2ConvertibleToString = !_ElementaryTypeOrContainerConvertibleToString<T> && 
         requires(T t) { 
@@ -67,7 +70,7 @@ namespace gz::util {
             { t.y } -> _ElementaryTypeOrContainerConvertibleToString; 
             requires sizeof(t.x) * 2 == sizeof(T);
         };
-    /// Type having string-convertible x, y, z members
+    /// Type having string-convertible x, y, z members and sizeof(T) == 3 * sizeof(x)
     template<typename T>
     concept Vector3ConvertibleToString = !_ElementaryTypeOrContainerConvertibleToString<T> && 
         requires(T t) { 
@@ -76,7 +79,7 @@ namespace gz::util {
             { t.z } -> _ElementaryTypeOrContainerConvertibleToString; 
             requires sizeof(t.x) * 3 == sizeof(T);
         };
-    /// Type having string-convertible x, y, z, w members
+    /// Type having string-convertible x, y, z, w members and sizeof(T) == 4 * sizeof(x)
     template<typename T>
     concept Vector4ConvertibleToString = !_ElementaryTypeOrContainerConvertibleToString<T> && 
         requires(T t) { 
@@ -87,11 +90,35 @@ namespace gz::util {
             requires sizeof(t.x) * 4 == sizeof(T);
         };
 
+    /// Type having string-convertible width, height members and sizeof(T) == 2 * sizeof(width)
+    template<typename T>
+    concept Extent2DConvertibleToString = !_ElementaryTypeOrContainerConvertibleToString<T> && 
+        requires(T t) { 
+            { t.width } -> _ElementaryTypeOrContainerConvertibleToString; 
+            { t.height } -> _ElementaryTypeOrContainerConvertibleToString; 
+            requires sizeof(t.width) * 2 == sizeof(T);
+        };
+    /// Type having string-convertible width, height, depth members and sizeof(T) == 3 * sizeof(width)
+    template<typename T>
+    concept Extent3DConvertibleToString = !_ElementaryTypeOrContainerConvertibleToString<T> && 
+        requires(T t) { 
+            { t.width } -> _ElementaryTypeOrContainerConvertibleToString; 
+            { t.height } -> _ElementaryTypeOrContainerConvertibleToString; 
+            { t.depth } -> _ElementaryTypeOrContainerConvertibleToString; 
+            requires sizeof(t.width) * 3 == sizeof(T);
+        };
+
     // POINTER
     /// Everything from string-convertibleNoPtr but "behind" a pointer
     template<typename T>
     concept PointerConvertibleToString = !_ElementaryTypeOrContainerConvertibleToString<T> and 
         requires(const T t) { { *t } -> _ElementaryTypeOrContainerConvertibleToString; };
+
+
+// HEX/OCT/BIN
+    // Forward range holding integers
+    template<typename T>
+    concept IntegralForwardRange = std::ranges::forward_range<T> and std::integral<std::ranges::range_value_t<T>>;
 
 } // namespace gz::util
 

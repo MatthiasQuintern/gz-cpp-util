@@ -87,6 +87,7 @@ namespace gz {
  */
     /**
      * @brief Return the string
+     * @returns static_cast<std::string>(t)
      */
     template<util::Stringy T>
     inline std::string toString(const T& t) {
@@ -95,6 +96,7 @@ namespace gz {
 
     /**
      * @brief Construct a string from a string like-type
+     * @returns std::string(t)
      */
     template<util::CanConstructString T>
     inline std::string toString(const T& t) {
@@ -104,6 +106,7 @@ namespace gz {
     /**
      * @overload
      * @brief Construct a string from a type having a toString() const member function
+     * @returns t.toString()
      */
     template<util::HasToStringMember T>
     inline std::string toString(const T& t) {
@@ -133,6 +136,7 @@ namespace gz {
     /**
      * @overload
      * @brief Construct a string from a forward range
+     * @returns [ x1, x2, ... ]
      */
     template<util::ContainerConvertibleToString T>
     std::string toString(const T& t) {
@@ -150,15 +154,17 @@ namespace gz {
     /**
      * @overload
      * @brief Construct a string from a pair
+     * @returns ( first, second )
      */
     template<util::PairConvertibleToString T>
     inline std::string toString(const T& t) {
-        return "{ " + toString(t.first) + ", " + toString(t.second) + " }";
+        return "( " + toString(t.first) + ", " + toString(t.second) + " )";
     }
 
     /**
      * @overload
      * @brief Construct a string from a forward range holding a pair, eg a map
+     * @returns { first: second, first: second, ... }
      */
     template<util::MapConvertibleToString T>
     std::string toString(const T& t) {
@@ -177,6 +183,7 @@ namespace gz {
     /**
      * @overload
      * @brief Construct a string from the element the pointer points at
+     * @returns *t
      */
     template<util::PointerConvertibleToString T>
     inline std::string toString(const T& t) {
@@ -186,6 +193,7 @@ namespace gz {
     /**
      * @overload
      * @brief Construct a string from a vector with x, y members
+     * @returns ( x, y )
      */
     template<util::Vector2ConvertibleToString T>
     inline std::string toString(const T& t) {
@@ -198,6 +206,7 @@ namespace gz {
     /**
      * @overload
      * @brief Construct a string from a vector with x, y members
+     * @returns ( x, y, z )
      */
     template<util::Vector3ConvertibleToString T>
     inline std::string toString(const T& t) {
@@ -211,6 +220,7 @@ namespace gz {
     /**
      * @overload
      * @brief Construct a string from a vector with x, y, z, w members
+     * @returns ( x, y, z, w )
      */
     template<util::Vector4ConvertibleToString T>
     inline std::string toString(const T& t) {
@@ -222,6 +232,32 @@ namespace gz {
         return s;
     }
 
+    /**
+     * @overload
+     * @brief Construct a string from a type having width and height members
+     * @returns ( width, height )
+     */
+    template<util::Extent2DConvertibleToString T>
+    inline std::string toString(const T& t) {
+        std::string s = "( ";
+        s += toString(t.width) + ", ";
+        s += toString(t.height) + " ) ";
+        return s;
+    }
+
+    /**
+     * @overload
+     * @brief Construct a string from a type having width and height members
+     * @returns ( width, height, depth )
+     */
+    template<util::Extent3DConvertibleToString T>
+    inline std::string toString(const T& t) {
+        std::string s = "( ";
+        s += toString(t.width) + ", ";
+        s += toString(t.height) + ", ";
+        s += toString(t.depth) + " ) ";
+        return s;
+    }
     /**
      * @overload
      * @brief Construct a string from a type that has toString declared in global namespace
@@ -428,6 +464,59 @@ namespace gz {
             return static_cast<T>(std::bitset<sizeof(T)*8>(s).to_ullong());
         }
     }
+
+
+    /**
+     * @overload
+     * @brief Construct a string where the elements from a forward range are in hexadecimal format
+     * @returns [ 0x0001, 0x0002, ... ]
+     */
+    template<util::IntegralForwardRange T>
+    std::string toHexString(const T& t) {
+        std::string s = "[ ";
+        for (auto it = t.begin(); it != t.end(); it++) {
+            s += toHexString(*it) + ", ";
+        }
+        if (s.size() > 2) {
+            s.erase(s.size() - 2);
+        }
+        s += " ]";
+        return s;
+    }
+    /**
+     * @overload
+     * @brief Construct a string where the elements from a forward range are in octal format
+     * @returns [ 00001, 00002, ... ]
+     */
+    template<util::IntegralForwardRange T>
+    std::string toOctString(const T& t) {
+        std::string s = "[ ";
+        for (auto it = t.begin(); it != t.end(); it++) {
+            s += toOctString(*it) + ", ";
+        }
+        if (s.size() > 2) {
+            s.erase(s.size() - 2);
+        }
+        s += " ]";
+        return s;
+    }
+    /**
+     * @overload
+     * @brief Construct a string where the elements from a forward range are in octal format
+     * @returns [ 0b0001, 0b0010, ... ]
+     */
+    template<util::IntegralForwardRange T>
+    std::string toBinString(const T& t) {
+        std::string s = "[ ";
+        for (auto it = t.begin(); it != t.end(); it++) {
+            s += toBinString(*it) + ", ";
+        }
+        if (s.size() > 2) {
+            s.erase(s.size() - 2);
+        }
+        s += " ]";
+        return s;
+    }
     /// @}
 
 } // namespace gz
@@ -478,9 +567,17 @@ namespace gz {
  *        return s;
  *    }
  *   @endcode
- *   To satisfy the concept, this overload must of course be visible to the compiler,
- *   so you have to declare it before including string_conversion.hpp.
-
+ *   @note 
+ *    To satisfy the concept, any overload must be visible to the compiler when the concept is processed,
+ *    so you have to declare it before including `util/string_concepts.hpp` (which is also included by `util/string_conversion.hpp`, `settings_manager.hpp` and `log.hpp`).
+ *    To ease troubleshooting the include order, `util/string_conversion.hpp` defines the macro `GZ_UTIL_STRING_CONCEPTS`,
+ *    so you can place an assertion like this before declaring your overloads:
+ *    @code
+ *     #ifdef GZ_UTIL_STRING_CONCEPTS
+ *         static_assert(false, "gz-util/util/string_conversion.hpp must not be included before this file!");
+ *     #endif
+ *    @endcode
+ *    
  *  @subsection sc_fromString_ov Overload for fromString
  *   Writing an overload for fromString needs a little bit more boiler plate.
  *   Since fromString is a templated function, you need to declare it as such.
