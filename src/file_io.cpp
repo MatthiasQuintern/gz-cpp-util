@@ -1,4 +1,5 @@
 #include "file_io.hpp"
+
 #include "exceptions.hpp"
 #include "util/string.hpp"
 
@@ -10,9 +11,11 @@
 
 namespace gz {
 
+//
+// KEY-VALUE FILE
+//
     template<typename Hash, typename Pred>
-    bool writeKeyValueFile(const std::string& filepath, const std::unordered_map<std::string, std::string, Hash, Pred>& content) {
-        bool success = false;
+    void writeKeyValueFile(const std::string& filepath, const std::unordered_map<std::string, std::string, Hash, Pred>& content) {
         std::ofstream file(filepath.c_str());
         if (file.is_open()) {
             file << "# Written by writeKeyValueFile" << std::endl;
@@ -20,15 +23,13 @@ namespace gz {
                 file << line.first << " = " << line.second << std::endl;
             }
             file.close();
-            success = true;
         }
         else {
             throw FileIOError("Could not open file: '" + filepath + "'", "writeKeyValueFile");
         }
-        return success;
     }
-    template bool writeKeyValueFile<std::hash<std::string>, std::equal_to<std::string>>(const std::string&, const std::unordered_map<std::string, std::string, std::hash<std::string>, std::equal_to<std::string>>&);
-    template bool writeKeyValueFile<util::string_hash, std::equal_to<>>(const std::string&, const std::unordered_map<std::string, std::string, util::string_hash, std::equal_to<>>&);
+    template void writeKeyValueFile<std::hash<std::string>, std::equal_to<std::string>>(const std::string&, const std::unordered_map<std::string, std::string, std::hash<std::string>, std::equal_to<std::string>>&);
+    template void writeKeyValueFile<util::string_hash, std::equal_to<>>(const std::string&, const std::unordered_map<std::string, std::string, util::string_hash, std::equal_to<>>&);
 
 
     using pairSS = std::pair<std::string, std::string>;
@@ -39,7 +40,6 @@ namespace gz {
     inline void insert(vecSS& t, pairSS&& p) { t.emplace_back(p); }
     inline void insert(umapSS& t, pairSS&& p) { t.emplace(p); }
     inline void insert(mapSS& t, pairSS&& p) { t.emplace(p); }
-
 
     template<ReadKeyValueFileImplemented T>
     T readKeyValueFile(const std::string& filepath, bool removeSpaces) {
@@ -77,5 +77,30 @@ namespace gz {
     template umapSS readKeyValueFile<umapSS>(const std::string&, bool);
     template mapSS readKeyValueFile<mapSS>(const std::string&, bool);
     template vecSS readKeyValueFile<vecSS>(const std::string&, bool);
+
+
+
+//
+// BINARY-FILE
+//
+    std::vector<char> readBinaryFile(const std::string& filepath) {
+        std::ifstream file(filepath, std::ios::ate | std::ios::binary);
+
+        std::vector<char> buffer;
+        if (file.is_open()) {
+             size_t fileSize = file.tellg();
+             buffer.resize(fileSize);
+             file.seekg(0);
+             file.read(buffer.data(), fileSize);
+
+        }
+        else {
+            throw FileIOError("Could not open file: '" + filepath + "'", "readBinaryFile");
+        }
+        file.close();
+
+        return buffer;
+    }
+
 
 }

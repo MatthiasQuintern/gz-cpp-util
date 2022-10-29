@@ -1,6 +1,7 @@
 #pragma once
 
-#include "util/string_conversion.hpp"
+/* #include "util/string_conversion.hpp" */
+#include "util/string.hpp"
 
 #include <map>
 #include <unordered_map>
@@ -17,7 +18,7 @@ namespace gz {
      * @see @ref fio_t_key_value "Key-Value filetype"
      */
     template<typename Hash, typename Pred>
-    bool writeKeyValueFile(const std::string& filepath, const std::unordered_map<std::string, std::string, Hash, Pred>& content);
+    void writeKeyValueFile(const std::string& filepath, const std::unordered_map<std::string, std::string, Hash, Pred>& content);
 
     template<typename T>
     concept ReadKeyValueFileImplemented = 
@@ -27,11 +28,18 @@ namespace gz {
 
     /**
      * @brief Read a file that contains key = value pairs
-     * @throws FileIOError
+     * @throws FileIOError if the file can not be opened
      * @see @ref fio_t_key_value "Key-Value filetype"
      */
     template<ReadKeyValueFileImplemented T>
-    T readKeyValueFile(const std::string& filepath, bool removeSpaces=false);
+    [[nodiscard]] T readKeyValueFile(const std::string& filepath, bool removeSpaces=false);
+
+
+    /**
+     * @brief Read a binary file and return the 8-bit words in a vector
+     * @throws FileIOError if the file can not be opened
+     */
+    [[nodiscard]] std::vector<char> readBinaryFile(const std::string& filepath);
 }
 
 /**
