@@ -4,8 +4,6 @@ Documentation is [available here](https://docs.quintern.xyz/gz-cpp-util/index.ht
 
 Please report bugs on the [github page](https://github.com/MatthiasQuintern/gz-cpp-util)!
 
-
-
 ## Features
 - Extensive logger using variadic templates to log almost anything
 - Some containers like a thread safe queue and a ringbuffer
@@ -48,6 +46,10 @@ Replace `firefox` with your web browser
 
 
 ## Changelog
+### 2022-10-30 [1.3.4]
+- Added toString support for 2D and 3D extent types
+- Added readBinaryFile function
+- Added toHex/Oct/BinString for forward ranges
 ### 2022-10-23 [1.3.3]
 - Added integer to string in hex/oct/bin representation conversion
 - Added integer from string in hex/oct/bin representation conversion
