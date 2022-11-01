@@ -1,7 +1,6 @@
 #include "file_io.hpp"
 
 #include "exceptions.hpp"
-#include "util/string.hpp"
 
 #include <algorithm>
 #include <fstream>

@@ -2,8 +2,9 @@
 
 #include "file_io.hpp"
 #include "exceptions.hpp"
-#include "util/string_conversion.hpp"
-#include "util/string.hpp"
+#include "string/conversion.hpp"
+#include "string/utility.hpp"
+#include "concepts.hpp"
 
 #include <functional>
 #include <iostream>
@@ -17,9 +18,6 @@
 
 namespace gz {
 
-    template<typename T, typename... PackTypes>
-    concept TypeIsInPack = (std::same_as<T, PackTypes> || ...); 
-
     template<typename T>
     concept Number = std::integral<T> || std::floating_point<T>;
 
@@ -27,16 +25,16 @@ namespace gz {
     concept NotNumber = !Number<T>;
 
     /* template<typename T, typename... PackTypes> */
-    /* concept IntegralInPack = std::integral<T> && TypeIsInPack<T, PackTypes...>; */
+    /* concept IntegralInPack = std::integral<T> && util::IsInPack<T, PackTypes...>; */
 
     /* template<typename T, typename... PackTypes> */
-    /* concept FloatingPointInPack = std::floating_point<T> && TypeIsInPack<T, PackTypes...>; */
+    /* concept FloatingPointInPack = std::floating_point<T> && util::IsInPack<T, PackTypes...>; */
 
     template<typename T, typename... PackTypes>
-    concept NumberInPack = Number<T> && TypeIsInPack<T, PackTypes...>;
+    concept NumberInPack = Number<T> && util::IsInPack<T, PackTypes...>;
 
     template<typename T, typename... PackTypes>
-    concept NotNumberInPack = NotNumber<T> && TypeIsInPack<T, PackTypes...>;
+    concept NotNumberInPack = NotNumber<T> && util::IsInPack<T, PackTypes...>;
 
 
     
@@ -182,7 +180,7 @@ namespace gz {
              * @throws InvalidType if T is not a registered type
              * @throws InvalidType if type T can not be constructed from value (string)
              */
-            template<TypeIsInPack<CacheTypes...> T>
+            template<util::IsInPack<CacheTypes...> T>
             const T& get(const std::string& key);
 
             /**
@@ -204,7 +202,7 @@ namespace gz {
              * @throws InvalidType if type T can not be constructed from value (string)
              * @throws InvalidType if the fallback can not be converted to string
              */
-            template<TypeIsInPack<CacheTypes...> T>
+            template<util::IsInPack<CacheTypes...> T>
             const T& getOr(const std::string& key, const T& fallback) requires std::copy_constructible<T>;
 
             /**
@@ -215,7 +213,7 @@ namespace gz {
             /**
              * @brief Same as get<T>, but returns a copy of value and not a const reference
              */
-            template<TypeIsInPack<CacheTypes...> T>
+            template<util::IsInPack<CacheTypes...> T>
             const T getCopy(const std::string& key);
 
             /**
@@ -226,7 +224,7 @@ namespace gz {
             /**
              * @brief Same as getOr<T>, but returns a copy of value and not a const reference
              */
-            template<TypeIsInPack<CacheTypes...> T>
+            template<util::IsInPack<CacheTypes...> T>
             const T getCopyOr(const std::string& key, const T& fallback);
 
         /**
@@ -240,7 +238,7 @@ namespace gz {
             /**
              * @brief Set the value of key to value
              * @throws InvalidArgument if value is @ref sm_validity "invalid"
-             * @throws Exception if an exception occurs during a potential @red sm_callback "callback function"
+             * @throws Exception if an exception occurs during a potential @ref sm_callback "callback function"
              */
             void set(const std::string& key, const std::string& value);
 
@@ -248,9 +246,9 @@ namespace gz {
              * @brief Set the value of key to value
              * @throws InvalidArgument if value is @ref sm_validity "invalid"
              * @throws InvalidType if T is not a registered type
-             * @throws Exception if an exception occurs during a potential @red sm_callback "callback function"
+             * @throws Exception if an exception occurs during a potential @ref sm_callback "callback function"
              */
-            template<TypeIsInPack<CacheTypes...> T>
+            template<util::IsInPack<CacheTypes...> T>
             void set(const std::string& key, const T& value);
         /**
          * @}
@@ -316,9 +314,9 @@ namespace gz {
              *  allowedValues vector is no longer valid after this function
              * @throws InvalidArgument if call is @ref SettingsMangerAllowedValues::hasCorrectFormat "invalid"
              */
-            template<TypeIsInPack<CacheTypes...> T>
+            template<util::IsInPack<CacheTypes...> T>
             void setAllowedValues(const std::string& key, std::vector<T>& allowedValues, SettingsManagerAllowedValueTypes type=SM_LIST);
-            template<TypeIsInPack<CacheTypes...> T>
+            template<util::IsInPack<CacheTypes...> T>
             void setAllowedValues(const std::string& key, std::vector<T>&& allowedValues, SettingsManagerAllowedValueTypes type=SM_LIST) { setAllowedValues<T>(key, allowedValues, type); };
 
             /**
@@ -428,7 +426,7 @@ namespace gz {
 
     template<Number T, StringConvertible... CacheTypes>
     void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& av) {
-        static_assert(TypeIsInPack<T, CacheTypes...>, "T must be be in pack CacheTypes");
+        static_assert(util::IsInPack<T, CacheTypes...>, "T must be be in pack CacheTypes");
         const std::vector<T>* v = nullptr;
         try {
             v = &std::get<std::vector<T>>(av.allowedValues);
@@ -460,7 +458,7 @@ namespace gz {
     /* template<StringConvertible... CacheTypes, NotNumberInPack<std::string, CacheTypes...> T> */
     template<NotNumber T, StringConvertible... CacheTypes>
     void hasCorrectFormat(SettingsManagerAllowedValues<CacheTypes...>& av) {
-        static_assert(TypeIsInPack<T, CacheTypes...>, "T must be be in pack CacheTypes");
+        static_assert(util::IsInPack<T, CacheTypes...>, "T must be be in pack CacheTypes");
         const std::vector<T>* v = nullptr;
         try {
             v = &std::get<std::vector<T>>(av.allowedValues);
@@ -541,9 +539,9 @@ namespace gz {
     }
 
     template<StringConvertible... CacheTypes>
-    template<TypeIsInPack<CacheTypes...> T>
+    template<util::IsInPack<CacheTypes...> T>
     const T& SettingsManager<CacheTypes...>::get(const std::string& key) {
-        static_assert(TypeIsInPack<T, CacheTypes...>, "Type T is not in parameter pack CacheTypes...");
+        static_assert(util::IsInPack<T, CacheTypes...>, "Type T is not in parameter pack CacheTypes...");
         /* if (!isRegisteredType<T>()) { */
         /*     throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::get"); */
         /* } */
@@ -581,7 +579,7 @@ namespace gz {
     }
 
     template<StringConvertible... CacheTypes>
-    template<TypeIsInPack<CacheTypes...> T>
+    template<util::IsInPack<CacheTypes...> T>
     const T& SettingsManager<CacheTypes...>::getOr(const std::string& key, const T& fallback) requires std::copy_constructible<T> {
         /* if (!isRegisteredType<T>()) { */
         /*     throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::getOr"); */
@@ -611,7 +609,7 @@ namespace gz {
         return get(key);
     }
     template<StringConvertible... CacheTypes>
-    template<TypeIsInPack<CacheTypes...> T>
+    template<util::IsInPack<CacheTypes...> T>
     const T SettingsManager<CacheTypes...>::getCopy(const std::string& key) {
         return get<T>(key);
     }
@@ -621,7 +619,7 @@ namespace gz {
         return getOr(key, fallback);
     }
     template<StringConvertible... CacheTypes>
-    template<TypeIsInPack<CacheTypes...> T>
+    template<util::IsInPack<CacheTypes...> T>
     const T SettingsManager<CacheTypes...>::getCopyOr(const std::string& key, const T& fallback) {
         return getOr<T>(key, fallback);
     }
@@ -662,7 +660,7 @@ namespace gz {
     }
 
     template<StringConvertible... CacheTypes>
-    template<TypeIsInPack<CacheTypes...> T>
+    template<util::IsInPack<CacheTypes...> T>
     void SettingsManager<CacheTypes...>::set(const std::string& key, const T& value) {
         /* if (!isRegisteredType<T>()) { */
         /*     throw InvalidType("Invalid type: '" + std::string(typeid(T).name()) + "'", "SettingsManager::set<" + std::string(typeid(T).name()) + ">"); */
@@ -817,7 +815,7 @@ namespace gz {
     }
 
     template<StringConvertible... CacheTypes>
-    template<TypeIsInPack<CacheTypes...> T>
+    template<util::IsInPack<CacheTypes...> T>
     void SettingsManager<CacheTypes...>::setAllowedValues(const std::string& key, std::vector<T>& allowed_vector, SettingsManagerAllowedValueTypes type) {
         /* std::cout << "setAllowedValues: " << typeid(std::vector<T>).name() << " - " << typeid(T).name() << "\n"; */
         SettingsManagerAllowedValues<CacheTypes...> av;

@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "util/string_conversion.hpp"
+#include "string/to_string.hpp"
 
 #include <iostream>
 #include <string>
@@ -53,24 +53,8 @@ namespace gz {
     /**
      * @brief Define types that can be logged with Log
      * @details
-     *  As of now you can log type T with instance t:
-     *  -# Any @ref util::Stringy "string-like type": eg. std::string, std::string_view 
-     *  -# Any @ref util::WorksWithStdToString "type that works with std::toString()"
-     *  -# Any @ref util::HasToStringMember "type that has a toString() const member that returns a string"
-     *  -# Any @ref util::ContainerConvertibleToString "type that has a forward_iterator" which references any one of 1-3
-     *  -# Any @ref util::PairConvertibleToString "type with t.first, t.second" provided t.first satisfies one of 1-4 and t.second satisfies 1-4
-     *  -# Any @ref util::MapConvertibleToString "type that has a forward_iterator" which references 5
-     *  -# Any @ref util::Vector2ConvertibleToString "type with t.x and t.y", provided t.x and t.y satisfy one of 1-6
-     *  -# Any @ref util::Vector3ConvertibleToString "type with t.x, t.y, t.z", provided t.x, t.y, t.z satisfy one of 1-6
-     *  -# Any @ref util::Vector4ConvertibleToString "type with t.x, t.y, t.z and t.w", provided t.x, t.y, t.z, t.w satisfy one of 1-6
-     *  -# Any @ref ConvertibleToString "type for which an overload of" <code>util::Stringy toString(const T&)</code> exists in global or gz namespace
-     *
-     *  The higher number takes precedence in overload resolution for the log function.
-     *
-     *  1-6 include for example:
-     *  - int, float, bool...
-     *  - std::vector<std::string>, std::list<unsigned int>
-     *  - std::map<std::string, std::vector<A>> if A.toString() returns a string - ...
+     *  Log can log everything where `gz::toString(const T&)` exists.
+     *  See @ref sc_toStringImplemented "this for more details".
      */
     template<typename T>
     concept Logable = ConvertibleToString<T>;
@@ -105,12 +89,7 @@ namespace gz {
  *  @subsection log_concepts Logable types
  *   Log uses concepts to determine if a type is logable and how it should be logged. See the documentation for concept Logable for more details.
  *   
- *   If you want your custom data type to be logable, it easiest to provide a member function with this signature:
- *   @code
- *          public:
- *              std::string toString() const;
- *   @endcode
- *   Alternatively, or if the type is not a class overload <code> std::string toString(const T& t) </code> in global or gz namespace.
+ *   If you want your custom data type to be logable, @ref sc_ov_toString "write an overload for gz::toString()"
  *
  *  @subsection log_threads Thread safety
  *   Log can use a static mutex for thread safety. To use this feature, you have to `#define LOG_MULTITHREAD` @b before including `log.hpp`.
@@ -176,7 +155,7 @@ class Log {
          * @details Depending on the settings of the log instance, the message will be printed to stdout and/or written to the logfile.
          *  The current date and time is placed before the message.
          *  The message will look like this:
-         *  <time>: <prefix>: <message>
+         *  \<time>: \<prefix>: \<message>
          *  where time will be white, prefix in prefixColor and message white.
          * @param args Any number of arguments that satisfy concept Logable
          */
@@ -187,7 +166,7 @@ class Log {
          * @brief Log a message in a certain color
          * @details
          *  The message will look like this:
-         *  <time>: <prefix>: <message0> <message1>...
+         *  \<time>: \<prefix>: \<message0> \<message1>...
          *  where time will be white, prefix in prefixColor, and messageI in colors[I]. 
          *  If there are less colors than message arguments, the last color is used for all remaining messages.
          * @param args Any number of arguments that satisfy concept Logable
@@ -212,7 +191,7 @@ class Log {
          * @brief Log an error
          * @details Prints the message with a red "Error: " prefix.
          *  The message will look like this:
-         *  <time>: <prefix>: Error: <message>
+         *  \<time>: \<prefix>: Error: \<message>
          *  where time will be white, prefix in prefixColor, Error in red and message white.
          * @param args Any number of arguments that satisfy concept Logable
          */
@@ -225,7 +204,7 @@ class Log {
          * @brief Log a warning
          * @details Prints the message with a yellow "Warning: " prefix.
          *  The message will look like this:
-         *  <time>: <prefix>: Warning: <message>
+         *  \<time>: \<prefix>: Warning: \<message>
          *  where time will be white, prefix in prefixColor, Warning in yellow and message white.
          * @param args Any number of arguments that satisfy concept Logable
          */
@@ -495,8 +474,6 @@ class Log {
         this->clog(colors, std::forward<Args>(args)...);
 #endif
     }
-
-
 } // namespace gz
 
 /**
