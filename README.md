@@ -45,7 +45,12 @@ Replace `firefox` with your web browser
 - Run `gz-enum-str -h` to list available options.
 
 
-## Changelog
+## Changelog [maj.min.rel]
+### 2022-11-01 [1.3.5]
+- String conversion utility now split in to_string.hpp, from_string.hpp and conversion.hpp
+- Containers with types that have a toString overload can be converted to string
+- Improved the documentation
+- Removed `util` directory
 ### 2022-10-30 [1.3.4]
 - Added toString support for 2D and 3D extent types
 - Added readBinaryFile function
