@@ -90,9 +90,6 @@ namespace gz {
         bool clearLogfileOnRestart = true;
         /// @brief Actually write the log to the logfile after so many lines. Must be at least 1
         unsigned int writeAfterLines = 100;
-        #ifdef LOG_SUBLOGS
-        std::shared_ptr<Log> parent;
-        #endif
     };
 
 #ifdef LOG_SUBLOGS
