@@ -7,6 +7,14 @@
 #include <iostream>
 #include <string>
 
+#ifndef LOG_NO_SUBLOGS
+#define LOG_SUBLOGS
+#endif
+
+#ifdef LOG_SUBLOGS
+#include <memory>
+#endif
+
 #ifdef LOG_MULTITHREAD 
 #include <mutex>
 #endif
@@ -59,6 +67,7 @@ namespace gz {
     template<typename T>
     concept Logable = ConvertibleToString<T>;
 
+    class Log;
     /**
      * @brief Create info for a Log object
      */
@@ -81,7 +90,36 @@ namespace gz {
         bool clearLogfileOnRestart = true;
         /// @brief Actually write the log to the logfile after so many lines. Must be at least 1
         unsigned int writeAfterLines = 100;
+        #ifdef LOG_SUBLOGS
+        std::shared_ptr<Log> parent;
+        #endif
     };
+
+#ifdef LOG_SUBLOGS
+    /**
+     * @brief Resources that are normally members of Log when not using `LOG_SUBLOGS`
+     */
+    struct LogResources {
+        /// Where the lines are stored
+        std::vector<std::string> logLines;
+        /// Used during log: string views into the single substrings in logLines[currentLine]
+        std::vector<std::string::size_type> argsBegin;
+        /// The current position in logLines
+        size_t iter = 0;
+
+
+        unsigned int writeToFileAfterLines;
+        bool clearLogfileOnRestart;
+        /// Absolute path to the logfile
+        std::string logFile;
+        bool storeLog;
+
+        bool showTime;
+        Color timeColor;
+        /// Stores the current time in yyyy-mm-dd hh:mm:ss format
+        char time[LOG_TIMESTAMP_CHAR_COUNT];
+    };  // class LogResources
+#endif
 
 /**
  * @brief Manages printing messages to stdout and to logfiles.
@@ -94,6 +132,14 @@ namespace gz {
  *  @subsection log_threads Thread safety
  *   Log can use a static mutex for thread safety. To use this feature, you have to `#define LOG_MULTITHREAD` @b before including `log.hpp`.
  *   Note that log uses the default std::cout buffer, so you should make sure it is not being used while logging something.
+ *
+ *  @subsection log_subs Sublogs
+ *   If you want multiple log instances that share a logfile, you can @ref createSublog "create a sublog" from the parent.
+ *   The sublog inherits all settings and resources from the parent, except for showLog and the prefix.
+ *   This feature is not available by default, you need to `#define LOG_SUBLOGS`.
+ *
+ *   Note that the sublog may outlive the parent, as they @ref LogResources "share their resources" with a shared_ptr.
+ *   You can also create sublogs from sublogs.
  *
  *  @subsection log_logfile Logfile
  *   The logs can be written to a logfile, which can be specified in the constructor.
@@ -124,23 +170,26 @@ namespace gz {
 class Log {
     public:
         /**
-         * @brief Creates a log object, which can print messages to stdout and/or write them to a log file
-         * @details 
-         *  By creating multiple instances with different parameters, logs can be easily turned on/off for different usages.
-         *
-         *  The overload using LogCreateInfo might be more clear, so I recommend using that.
-         * @note Colors will only be shown when written to stdout, not in the logfile.
-         * @deprecated Use the overload using the LogCreateInfo struct
+         * @brief Create a log with default settings
+         * @details
+         *  - `showLog = true`
+         *  - `storeLog = false`
+         *  - `prefix = ""`
+         *  - `showTime = false`
          */
-        Log(std::string logfile="log.log", bool showLog=true, bool storeLog=true, std::string&& prefix="", Color prefixColor=RESET, bool showTime=true, Color timeColor=RESET, bool clearLogfileOnRestart=true, unsigned int writeAfterLines=100);
-
+        Log();
         /**
          * @brief Creates a log object, which can print messages to stdout and/or write them to a log file
          * @details 
          *  By creating multiple instances with different parameters, logs can be easily turned on/off for different usages.
          */
         Log(LogCreateInfo&& createInfo);
-
+#ifdef LOG_SUBLOGS
+        Log createSublog(bool showLog, const std::string& prefix, Color prefixColor);
+    private:
+        Log(std::shared_ptr<LogResources>&& resources, bool showLog, const std::string& prefix, Color prefixColor);
+    public:
+#endif
         ~Log();
 
     // 
@@ -275,40 +324,64 @@ class Log {
 
     private:
         void init();
+
+#ifdef LOG_SUBLOGS
+        std::shared_ptr<LogResources> resources;
+
+        std::vector<std::string>& logLines() { return resources->logLines; };
+        std::vector<std::string::size_type>& argsBegin() { return resources->argsBegin; };
+        size_t& iter() { return resources->iter; };
+
+        unsigned int& writeToFileAfterLines() { return resources->writeToFileAfterLines; };
+        bool& clearLogfileOnRestart() { return resources->clearLogfileOnRestart; };
+        std::string& logFile() { return resources->logFile; };
+        bool& storeLog() { return resources->storeLog; };
+
+        bool& showTime() { return resources->showTime; };
+        Color& timeColor() { return resources->timeColor; };
+        char* time() { return resources->time; };
+#else
         /// Where the lines are stored
-        std::vector<std::string> logLines;
+        std::vector<std::string> logLines_;
         /// Used during log: string views into the single substrings in logLines[currentLine]
-        std::vector<std::string::size_type> argsBegin;
+        std::vector<std::string::size_type> argsBegin_;
         /// The current position in logLines
-        size_t iter = 0;
-        /**
-         * @name Writing to file
-         */
-        /// @{
+        size_t iter_ = 0;
+
         /// When iter reaches writeToFileAfterLines, write log to file
-        unsigned int writeToFileAfterLines;
-        bool clearLogfileOnRestart;
+        unsigned int writeToFileAfterLines_;
+        bool clearLogfileOnRestart_;
         /// Absolute path to the logfile
-        std::string logFile;
-        bool storeLog;
+        std::string logFile_;
+        bool storeLog_;
+
+        bool showTime_;
+        Color timeColor_;
+        /// Stores the current time in yyyy-mm-dd hh:mm:ss format
+        char[LOG_TIMESTAMP_CHAR_COUNT] time_;
+
+        // getters
+        std::vector<std::string>& logLines() { return logLines_; };
+        std::vector<std::string::size_type>& argsBegin() { return argsBegin_; };
+        size_t& iter() { return iter_; };
+
+        unsigned int& writeToFileAfterLines() { return writeToFileAfterLines_; };
+        bool& clearLogfileOnRestart() { return clearLogfileOnRestart_; };
+        std::string& logFile() { return logFile_; };
+        bool& storeLog() { return storeLog_; };
+
+        bool& showTime() { return showTime_; };
+        Color& timeColor() { return timeColor_; };
+        std::string& time() { return time_; };
+#endif
         void writeLog();
-        /// @}
 
         bool showLog;
         Color prefixColor;
         std::string prefix;
 
-        /**
-         * @name Time
-         */
-        /// @{
-        bool showTime;
-        Color timeColor;
-        /// Stores the current time in yyyy-mm-dd hh:mm:ss format
-        char time[LOG_TIMESTAMP_CHAR_COUNT];
         /// Store the current time in yyyy-mm-dd hh:mm:ss format in time member
         void getTime();
-        /// @}
 
 #ifdef LOG_MULTITHREAD 
         /// Lock for std::cout
@@ -325,31 +398,31 @@ class Log {
 #ifdef LOG_MULTITHREAD 
         mtx.lock();
 #endif
-        argsBegin.clear();
-        if (showTime) {
+        argsBegin().clear();
+        if (showTime()) {
             getTime();
-            logLines[iter] = time;
+            logLines()[iter()] = time();
         }
         else {
-            logLines.clear();
+            logLines().clear();
         }
-        argsBegin.emplace_back(logLines[iter].size());
-        logLines[iter] += prefix;
+        argsBegin().emplace_back(logLines()[iter()].size());
+        logLines()[iter()] += prefix;
 
         vlog(" ", std::forward<Args>(args)...);
-        logLines[iter] += "\n";
-        argsBegin.emplace_back(logLines[iter].size());
+        logLines()[iter()] += "\n";
+        argsBegin().emplace_back(logLines()[iter()].size());
 
         if (showLog) {
             // time
-            std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
+            std::cout << COLORS[timeColor()] << std::string_view(logLines()[iter()].begin(), logLines()[iter()].begin() + argsBegin()[0]) 
             // prefix
-                << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET]
+                << COLORS[prefixColor] << std::string_view(logLines()[iter()].begin() + argsBegin()[0], logLines()[iter()].begin() + argsBegin()[1]) << COLORS[RESET]
             // message
-                << std::string_view(logLines[iter].begin() + argsBegin[1], logLines[iter].end());
+                << std::string_view(logLines()[iter()].begin() + argsBegin()[1], logLines()[iter()].end());
         }
-        if (++iter >= writeToFileAfterLines) {
-            iter = 0;
+        if (++iter() >= writeToFileAfterLines()) {
+            iter() = 0;
             writeLog();
         }
 #ifdef LOG_MULTITHREAD 
@@ -363,36 +436,36 @@ class Log {
 #ifdef LOG_MULTITHREAD 
         mtx.lock();
 #endif
-        argsBegin.clear();
-        if (showTime) {
+        argsBegin().clear();
+        if (showTime()) {
             getTime();
-            logLines[iter] = std::string(time);
+            logLines()[iter()] = std::string(time());
         }
         else {
-            logLines.clear();
+            logLines().clear();
         }
-        argsBegin.emplace_back(logLines[iter].size());
-        logLines[iter] += prefix;
+        argsBegin().emplace_back(logLines()[iter()].size());
+        logLines()[iter()] += prefix;
 
         vlog(" ", std::forward<Args>(args)...);
-        logLines[iter] += "\n";
-        argsBegin.emplace_back(logLines[iter].size());
+        logLines()[iter()] += "\n";
+        argsBegin().emplace_back(logLines()[iter()].size());
 
         if (showLog) {
             // time
-            std::cout << COLORS[timeColor] << std::string_view(logLines[iter].begin(), logLines[iter].begin() + argsBegin[0]) 
+            std::cout << COLORS[timeColor()] << std::string_view(logLines()[iter()].begin(), logLines()[iter()].begin() + argsBegin()[0]) 
             // prefix
-                << COLORS[prefixColor] << std::string_view(logLines[iter].begin() + argsBegin[0], logLines[iter].begin() + argsBegin[1]) << COLORS[RESET];
+                << COLORS[prefixColor] << std::string_view(logLines()[iter()].begin() + argsBegin()[0], logLines()[iter()].begin() + argsBegin()[1]) << COLORS[RESET];
             // max index where i can be used for colors and i+2 can be used for currentViews
-            size_t maxI = std::min(colors.size(), argsBegin.size() - 2);
+            size_t maxI = std::min(colors.size(), argsBegin().size() - 2);
             for (size_t i = 0; i < maxI; i++) {
-                std::cout << COLORS[colors[i]] << std::string_view(logLines[iter].begin() + argsBegin[i+1], logLines[iter].begin() + argsBegin[i+2]);
+                std::cout << COLORS[colors[i]] << std::string_view(logLines()[iter()].begin() + argsBegin()[i+1], logLines()[iter()].begin() + argsBegin()[i+2]);
             }
             // log the rest, maxI is now <= argsBegin.size() - 2
-            std::cout << std::string_view(logLines[iter].begin() + argsBegin[maxI+1], logLines[iter].end()) << COLORS[RESET];
+            std::cout << std::string_view(logLines()[iter()].begin() + argsBegin()[maxI+1], logLines()[iter()].end()) << COLORS[RESET];
         }
-        if (++iter >= writeToFileAfterLines) {
-            iter = 0;
+        if (++iter() >= writeToFileAfterLines()) {
+            iter() = 0;
             writeLog();
         }
 #ifdef LOG_MULTITHREAD 
@@ -403,17 +476,17 @@ class Log {
 
     template<util::Stringy T, Logable... Args>
     void Log::vlog(const char* appendChars, T&& t,  Args&&... args) {
-        argsBegin.emplace_back(logLines[iter].size());
-        logLines[iter] += std::string(t);
-        logLines[iter] += appendChars;
+        argsBegin().emplace_back(logLines()[iter()].size());
+        logLines()[iter()] += std::string(t);
+        logLines()[iter()] += appendChars;
         vlog(" ", std::forward<Args>(args)...);
     }
     /// Log anything where toString exists
     template<ConvertibleToString T, Logable... Args>
     void Log::vlog(const char* appendChars, T&& t,  Args&&... args) requires (!util::Stringy<T>) {
-        argsBegin.emplace_back(logLines[iter].size());
-        logLines[iter] += toString(t);
-        logLines[iter] += appendChars;
+        argsBegin().emplace_back(logLines()[iter()].size());
+        logLines()[iter()] += toString(t);
+        logLines()[iter()] += appendChars;
         vlog(" ", std::forward<Args>(args)...);
     }
 

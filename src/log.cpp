@@ -4,6 +4,7 @@
 #include <fstream>
 #include <ctime>
 #include <ios>
+#include <memory>
 
 namespace gz {
     namespace fs = std::filesystem;
@@ -50,35 +51,65 @@ namespace gz {
 
 
 #ifdef LOG_MULTITHREAD 
+// Static member initialization
     std::mutex Log::mtx;
 #endif
-    Log::Log(std::string logfile, bool showLog, bool storeLog, std::string&& prefix_, Color prefixColor, bool showTime, Color timeColor, bool clearLogfileOnRestart, unsigned int writeAfterLines)
-        : iter(0), 
-            writeToFileAfterLines(writeAfterLines), clearLogfileOnRestart(clearLogfileOnRestart), 
-            logFile(logfile), storeLog(storeLog), 
-            showLog(showLog), 
-            prefixColor(prefixColor), prefix(prefix_ + ": "), 
-            showTime(showTime), timeColor(timeColor)
+
+    Log::Log()
+        : showLog(true), 
+            prefixColor(Color::RESET), 
+            prefix("")
     {
+#ifdef LOG_SUBLOGS
+        resources = std::make_shared<LogResources>();
+#endif
+        iter() = 0;
+        writeToFileAfterLines() = 100;
+        clearLogfileOnRestart() = false;
+        logFile() = "default.log";
+        storeLog() = false;
+        showTime() = false;
+        timeColor() = Color::RESET;
+
         init();
     }
-
 
     Log::Log(LogCreateInfo&& ci)
-        : iter(0), 
-            writeToFileAfterLines(ci.writeAfterLines), clearLogfileOnRestart(ci.clearLogfileOnRestart), 
-            logFile(ci.logfile), storeLog(ci.storeLog),
-            showLog(ci.showLog), 
+        : showLog(ci.showLog), 
             prefixColor(ci.prefixColor), 
-            prefix(ci.prefix + ": "), 
-            showTime(ci.showTime), timeColor(ci.timeColor)
+            prefix(ci.prefix)
     {
+#ifdef LOG_SUBLOGS
+        resources = std::make_shared<LogResources>();
+#endif
+        iter() = 0;
+        writeToFileAfterLines() = ci.writeAfterLines;
+        clearLogfileOnRestart() = ci.clearLogfileOnRestart;
+        logFile() = ci.logfile;
+        storeLog() = ci.storeLog;
+        showTime() = ci.showTime;
+        timeColor() = ci.timeColor;
+
         init();
     }
+
+    
+#ifdef LOG_SUBLOGS
+    Log Log::createSublog(bool showLog, const std::string& prefix, Color prefixColor) {
+        return Log(std::shared_ptr<LogResources>(resources), showLog, prefix, prefixColor);
+    }
+
+    Log::Log(std::shared_ptr<LogResources>&& resources_, bool showLog, const std::string& prefix, Color prefixColor)
+        : resources(std::move(resources_)), showLog(showLog), prefixColor(prefixColor), prefix(prefix)
+    {
+
+    }
+#endif
+
 
     void Log::init() {
         // get absolute path to the logfile
-        fs::path logpath(std::move(logFile));
+        fs::path logpath(std::move(logFile()));
         if (!logpath.is_absolute()) {
             logpath = fs::current_path() / logpath;
         }
@@ -86,30 +117,34 @@ namespace gz {
         if (!fs::is_directory(logpath.parent_path())) {
             fs::create_directory(logpath.parent_path());
         }
-        logFile = logpath.string();
+        logFile() = logpath.string();
 
         // if clearLogfileOnRestart, open the file to clear it
-        if (clearLogfileOnRestart and fs::is_regular_file(logpath)) {
-            std::ofstream file(logFile, std::ofstream::trunc);
+        if (clearLogfileOnRestart() and fs::is_regular_file(logpath)) {
+            std::ofstream file(logFile(), std::ofstream::trunc);
             file.close();
         }
 
-        if (writeToFileAfterLines == 0) { writeToFileAfterLines = 1; }
-        logLines.resize(writeToFileAfterLines);
+        if (writeToFileAfterLines() == 0) { writeToFileAfterLines() = 1; }
+        logLines().resize(writeToFileAfterLines());
         // reserve memory for strings
         if (LOG_RESERVE_STRING_SIZE > 0) {
-            for (size_t i = 0; i < logLines.size(); i++) {
-                logLines[i].reserve(LOG_RESERVE_STRING_SIZE);
+            for (size_t i = 0; i < logLines().size(); i++) {
+                logLines()[i].reserve(LOG_RESERVE_STRING_SIZE);
             }
         }
 
         // reserve memory for argsBegin
-        argsBegin.reserve(ARG_COUNT_RESERVE_COUNT);
+        argsBegin().reserve(ARG_COUNT_RESERVE_COUNT);
+
+        if (!prefix.empty()) {
+            prefix += ": ";
+        }
     }
 
 
     Log::~Log() {
-        if (storeLog) { writeLog(); }
+        if (storeLog()) { writeLog(); }
     }
 
 
@@ -118,24 +153,24 @@ namespace gz {
         struct std::tm *tmp;
         tmp = std::localtime(&t);
         // stores the date and time in time: yyyy-mm-dd hh:mm:ss:
-        std::strftime(time, sizeof(time), "%F %T: ", tmp);
+        std::strftime(time(), LOG_TIMESTAMP_CHAR_COUNT, "%F %T: ", tmp);
     }
 
     
     void Log::writeLog() {
-        std::ofstream file(logFile, std::ios_base::app);
+        std::ofstream file(logFile(), std::ios_base::app);
         if (file.is_open()) {
-            for (std::string message : logLines) {
+            for (std::string message : logLines()) {
                 file << message;
             }
             getTime();
-            std::string message = time;
-            message += "Written log to file: " + logFile + "\n";
+            std::string message = time();
+            message += "Written log to file: " + logFile() + "\n";
             /* file << message; */
             if (showLog) { std::cout << message; }
         }
         else {
-            std::cout << COLORS[RED] << "LOG ERROR: " << COLORS[RESET] << "Could not open file '" << logFile << "'." << '\n';
+            std::cout << COLORS[RED] << "LOG ERROR: " << COLORS[RESET] << "Could not open file '" << logFile() << "'." << '\n';
         }
         file.close();
     }
