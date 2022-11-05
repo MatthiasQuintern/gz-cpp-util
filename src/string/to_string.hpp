@@ -198,7 +198,7 @@ namespace gz {
          * @returns std::to_string(t)
          */
         template<util::WorksWithStdToString T>
-        inline std::string toString(const T& t) {
+        inline std::string toString(const T& t) requires (!std::same_as<T, bool>) {
             return std::to_string(t);
         }
 
@@ -301,6 +301,15 @@ namespace gz {
         template<util::PtrToToStringBasicOrVector T>
         inline std::string toString(const T& t) {
             return toString(*t);        
+        }
+
+        /**
+         * @overload
+         * @brief Construct a string from the address of the void*
+         * @returns toString(reinterpret_cast<uint64_t>(voidPtr))
+         */
+        inline std::string toString(const void* const voidPtr) {
+            return toString(reinterpret_cast<uint64_t>(voidPtr));        
         }
 }  // namespace gz
 
