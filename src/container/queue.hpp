@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../util/util.hpp"
+#include "../util.hpp"
 
 #include <iostream>
 #include <vector>
