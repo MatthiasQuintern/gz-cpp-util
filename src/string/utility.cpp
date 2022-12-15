@@ -39,7 +39,7 @@ std::vector<T> splitStringInVector(const std::string_view& s, const std::string&
         if (!(skipEmptyStrings and posStart == posEnd)) {
             v.emplace_back(T(s.begin() + posStart, s.begin() + posEnd));
         }
-        posStart = posEnd + 1;
+        posStart = posEnd + separator.size();
         posEnd = s.find(separator, posStart);
     }
     // last element

@@ -15,14 +15,14 @@ OBJECTS 	= $($(notdir SRC):%.cpp=$(OBJECT_DIR)/%.o)
 OBJECT_DIRS = $(OBJECT_DIR) $(foreach dir,$(SRCDIRS), $(OBJECT_DIR)/$(dir))
 DEPENDS 	= ${OBJECTS:.o=.d}
 
-CXXFLAGS    += $(IFLAGS)
+CXXFLAGS += $(IFLAGS)
 
-.PHONY: install debug run clean docs 
+.PHONY: install debug run clean docs test
 # 
 # BUILDING
 #
 default: $(LIB)
-	echo $(OBJECTS)
+	@echo $(OBJECTS)
 
 # with debug flags
 debug: CXXFLAGS += -g # -DDEBUG 
@@ -47,6 +47,7 @@ install: $(LIB) $(HEADER_INST)
 	@{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
 	install -D -m 755 $< $(DESTDIR)/lib/$(subst ../,,$<)
 	install -D -m 755 ../gen_enum_str.py $(DESTDIR)/bin/gen-enum-str
+	-rm $(HEADER_INST)
 
 uninstall:
 	@{ [ -z "$(DESTDIR)" ] && echo "Please set the DESTDIR variable (probably to /usr or /usr/local)" && exit 1; } || true
@@ -63,12 +64,20 @@ $(OBJECT_DIR)/%.stamp: %.hpp $(OBJECT_DIR)
 	@chmod 777 $@
 
 #
+# TESTING
+#
+test: CXXFLAGS += -DGZ_UTIL_TESTING
+test: default
+
+
+#
 # EXTRAS
 #
 # remove all object and dependecy files
-clean:
+clean: 
 	-rm -rf $(OBJECT_DIR)
 	-rm $(LIB)
+
 
 docs:
 	doxygen .doxygen_config

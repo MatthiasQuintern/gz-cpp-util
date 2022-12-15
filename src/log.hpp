@@ -7,9 +7,7 @@
 #include <iostream>
 #include <string>
 
-#ifndef LOG_NO_SUBLOGS
 #define LOG_SUBLOGS
-#endif
 
 #ifdef LOG_SUBLOGS
 #include <memory>
@@ -182,7 +180,7 @@ class Log {
          */
         Log(LogCreateInfo&& createInfo);
 #ifdef LOG_SUBLOGS
-        Log createSublog(bool showLog, const std::string& prefix, Color prefixColor);
+        Log createSublog(bool showLog, const std::string& prefix, Color prefixColor=gz::Color::RESET); 
     private:
         Log(std::shared_ptr<LogResources>&& resources, bool showLog, const std::string& prefix, Color prefixColor);
     public:
@@ -355,7 +353,7 @@ class Log {
         bool showTime_;
         Color timeColor_;
         /// Stores the current time in yyyy-mm-dd hh:mm:ss format
-        char[LOG_TIMESTAMP_CHAR_COUNT] time_;
+        char time_[LOG_TIMESTAMP_CHAR_COUNT];
 
         // getters
         std::vector<std::string>& logLines() { return logLines_; };
@@ -369,8 +367,13 @@ class Log {
 
         bool& showTime() { return showTime_; };
         Color& timeColor() { return timeColor_; };
-        std::string& time() { return time_; };
+        char* time() { return time_; };
 #endif
+        /**
+         * @brief Write the log to the logfile
+         * @details
+         *  Opens the file in append mode and writes the strings in logLines from 0 to iter to it. Sets iter to 0.
+         */
         void writeLog();
 
         bool showLog;
@@ -401,7 +404,7 @@ class Log {
             logLines()[iter()] = time();
         }
         else {
-            logLines().clear();
+            logLines()[iter()].clear();
         }
         argsBegin().emplace_back(logLines()[iter()].size());
         logLines()[iter()] += prefix;
@@ -439,7 +442,7 @@ class Log {
             logLines()[iter()] = std::string(time());
         }
         else {
-            logLines().clear();
+            logLines()[iter()].clear();
         }
         argsBegin().emplace_back(logLines()[iter()].size());
         logLines()[iter()] += prefix;

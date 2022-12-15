@@ -102,7 +102,9 @@ namespace gz {
     Log::Log(std::shared_ptr<LogResources>&& resources_, bool showLog, const std::string& prefix, Color prefixColor)
         : resources(std::move(resources_)), showLog(showLog), prefixColor(prefixColor), prefix(prefix)
     {
-
+        if (!this->prefix.empty()) {
+            this->prefix += ": ";
+        }
     }
 #endif
 
@@ -160,18 +162,21 @@ namespace gz {
     void Log::writeLog() {
         std::ofstream file(logFile(), std::ios_base::app);
         if (file.is_open()) {
-            for (std::string message : logLines()) {
-                file << message;
+            for (size_t i = 0; i < iter(); i++) {
+                file << logLines()[i];
             }
-            getTime();
-            std::string message = time();
-            message += "Written log to file: " + logFile() + "\n";
-            /* file << message; */
-            if (showLog) { std::cout << message; }
+            iter() = 0;
+            if (showLog) { 
+                getTime();
+                std::string message = time();
+                message += "Written log to file: " + logFile() + "\n";
+                std::cout << message; 
+            }
         }
         else {
             std::cout << COLORS[RED] << "LOG ERROR: " << COLORS[RESET] << "Could not open file '" << logFile() << "'." << '\n';
         }
         file.close();
     }
+    
 } // namespace gz

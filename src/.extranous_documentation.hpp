@@ -21,11 +21,15 @@ namespace gz {
      *
      * @section main_installation Installation
      *  @subsection main_i_linux Linux
-     *   - Make a clone of this repo: `git clone --recursive https://github.com/MatthiasQuintern/gz-cpp-util`
-     *   - Build and install: `cd src && make && make install`
+     *   - Make a clone of this repo: `git clone https://github.com/MatthiasQuintern/gz-cpp-util`
+     *   - Build and install: `cd src && make && make DESTDIR=/usr/local install`
      *  @subsection main_i_arch Arch Linux (ABS)
      *   - Download PKGBUILD: `wget https://raw.github.com/MatthiasQuintern/gz-cpp-util/main/PKGBUILD`
      *   - Build and install with the Arch Build System: `makepkg -si`
+     *  @subsection main_i_windows Windows
+     *   I do not delevop on windows, but you'll figure it out. 
+     *   The only platform specific code is the color support of the logger, which wont work properly on windows (I will address that in the future).
+     *   It should compile with mvsc.
      *
      *  @subsection main_i_usage Usage
      *   - Add `-lgzutil` to your linker flags
